@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Water Quality Virtual Lab</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root{--accent:#1976d2;--card:#ffffffee;--bg1:#041323}
+        *{box-sizing:border-box}
+        body{
+            margin:0;font-family:Poppins, Segoe UI, Arial;background:linear-gradient(180deg,#052433,#083a49);color:#eaf9ff;height:100vh
+        }
+
+        header{padding:18px 12px;text-align:center;font-size:20px;font-weight:700;color:#fff;background:linear-gradient(90deg,rgba(255,255,255,0.03),transparent)}
+
+        .main{display:flex;gap:20px;padding:24px;max-width:1100px;margin:18px auto}
+
+        .panel{background:var(--card);padding:18px;border-radius:12px;width:300px;box-shadow:0 20px 40px rgba(2,6,23,0.6);color:#08323a}
+
+        .lab{flex:1;display:flex;justify-content:center;align-items:center}
+
+        .beaker{width:360px;height:340px;border-radius:16px;position:relative;overflow:hidden;background:linear-gradient(180deg,#062a3a,#073847);box-shadow:0 30px 60px rgba(2,6,23,0.6);border:2px solid rgba(255,255,255,0.04)}
+
+        .water{position:absolute;bottom:0;width:120%;left:-10%;height:60%;transition:height .5s ease,background-color .4s ease,opacity .3s ease;mix-blend-mode:screen}
+
+        .wave{position:absolute;left:0;right:0;bottom:0;height:140px;pointer-events:none;overflow:hidden}
+        .wave svg{width:200%;height:140px}
+        @keyframes waveMove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+        .wave .w{animation:8s linear infinite waveMove}
+
+        .control{margin-bottom:14px}
+        label{font-weight:600;color:#08323a}
+
+        button{width:100%;padding:10px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-weight:700}
+        button:hover{filter:brightness(1.05)}
+
+        .result{margin-top:12px;font-weight:700;text-align:center}
+        input[type=range]{width:100%}
+
+        canvas{position:absolute;left:0;bottom:0}
+
+        @media(max-width:900px){.main{flex-direction:column;padding:12px}.panel{width:100%}.beaker{width:320px;height:300px}}
+    </style>
+</head>
+
+<body>
+
+    <header>💧 Water Quality Virtual Lab</header>
+
+    <div class="main">
+
+        <!-- LEFT CONTROL PANEL -->
+        <div class="panel">
+
+            <div class="control">
+                <label>pH: <span id="phVal">7</span></label>
+                <input type="range" min="0" max="14" step="0.1" value="7" id="ph">
+            </div>
+
+            <div class="control">
+                <label>Turbidity: <span id="turbVal">0</span> NTU</label>
+                <input type="range" min="0" max="100" value="0" id="turbidity">
+            </div>
+
+            <div class="control">
+                <label>Temperature: <span id="tempVal">25</span> °C</label>
+                <input type="range" min="0" max="50" value="25" id="temp">
+            </div>
+
+            <div class="control">
+                <label>TDS: <span id="tdsVal">150</span> ppm</label>
+            </div>
+
+            <button onclick="setSample('river')">River</button>
+            <button onclick="setSample('tap')">Tap</button>
+            <button onclick="setSample('borewell')">Borewell</button>
+            <button onclick="setSample('waste')">Waste</button>
+
+            <div id="result" class="result"></div>
+
+            <div id="sampleInfo" style="margin-top:10px;text-align:center;">
+                Initial Sample: Default Clean Water
+            </div>
+
+        </div>
+
+        <!-- LAB -->
+        <div class="lab">
+                    <div class="beaker">
+                        <div id="water" class="water"></div>
+
+                        <div class="wave" aria-hidden="true">
+                            <svg viewBox="0 0 1200 140" preserveAspectRatio="none">
+                                <g class="w">
+                                    <path d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,140 L0,140 Z" fill="rgba(255,255,255,0.06)"></path>
+                                    <path d="M0,80 C150,40 350,120 600,80 C850,40 1050,120 1200,80 L1200,140 L0,140 Z" fill="rgba(255,255,255,0.03)"></path>
+                                </g>
+                            </svg>
+                        </div>
+
+                        <canvas id="molecules" width="360" height="340"></canvas>
+                    </div>
+        </div>
+
+        <!-- LEARNING PANEL -->
+        <div class="panel">
+
+            <h3 id="levelTitle">Level 1: pH</h3>
+
+            <div id="objective">Adjust pH to safe range.</div>
+
+            <div id="task" style="margin-top:10px;">
+                Task: Make water safe.
+            </div>
+
+            <div id="levelStatus" class="result"></div>
+
+            <button onclick="submitLevel()">Submit</button>
+            <button onclick="nextLevel()">Next Level</button>
+
+            <div style="margin-top:10px;font-size:12px;">
+                Keywords: <span id="keywords">pH, Acidic, Neutral</span>
+            </div>
+
+            <!-- SCORE -->
+            <div style="margin-top:15px">
+                Score: <span id="score">0</span>
+
+                <div style="height:10px;background:#ddd;border-radius:5px;margin-top:5px;">
+                    <div id="progressBar" style="height:10px;width:0%;background:#4CAF50;border-radius:5px;"></div>
+                </div>
+            </div>
+
+            <!-- QUIZ -->
+            <div id="quizPanel" style="margin-top:15px;display:none">
+                <div id="quizQuestion"></div>
+
+                <button onclick="answerQuiz(true)">True</button>
+                <button onclick="answerQuiz(false)">False</button>
+
+                <div id="quizResult"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <footer style="text-align:center;font-size:12px;color:#555;padding:10px;">
+        This simulator uses simplified particle models to visualize molecular motion, thermal expansion, and water
+        quality parameters.
+    </footer>
+
+    <script>
+
+        // VARIABLES
+        let ph = 5, tds = 150, turb = 0, temp = 25;
+        let level = 1;
+        let score = 0;
+        let levelCompleted = false;
+
+        // ELEMENTS
+        // ELEMENTS
+        const water = document.getElementById("water");
+        const phSlider = document.getElementById("ph");
+        const turbSlider = document.getElementById("turbidity");
+        const tempSlider = document.getElementById("temp");
+
+        // interaction flag
+        let userInteracted = false;
+
+        // EVENTS (ONLY ONCE)
+        phSlider.oninput = () => {
+            ph = parseFloat(phSlider.value);
+            userInteracted = true;
+            update();
+        }
+
+        turbSlider.oninput = () => {
+            turb = turbSlider.value;
+            userInteracted = true;
+            update();
+        }
+
+        tempSlider.oninput = () => {
+            temp = tempSlider.value;
+            userInteracted = true;
+            update();
+        }
+        // LEVELS
+        const levels = {
+            1: { title: "Level 1: pH", objective: "Adjust pH", task: "Bring pH to a safe range", keywords: "pH" },
+            2: { title: "Level 2: Turbidity", objective: "Reduce turbidity", task: "Bring turbidity to safe NTU", keywords: "Turbidity" },
+            3: {
+                title: "Level 3: Temperature",
+                objective: "Explore how temperature affects molecular behavior",
+                task: "Try increasing temperature. Do particles move faster? Do they appear larger?",
+                keywords: "Temperature, Kinetic Energy, Molecular Motion, Thermal Expansion"
+            }
+        };
+
+        const levelStartValues = {
+            1: { ph: 4.5, turb: 50, temp: 25, tds: 200 },
+            2: { ph: 7, turb: 60, temp: 25, tds: 180 },
+            3: { ph: 7, turb: 20, temp: 20, tds: 160 }
+        };
+
+        // QUIZ
+        const quizQuestions = {
+            1: {
+                question: "pH 7 is neutral.",
+                answer: true,
+                answerText: "True",
+                explanation: "Neutral pH is 7; values outside 6.5-8.5 become unsafe for drinking water."
+            },
+            2: {
+                question: "High turbidity means clear water.",
+                answer: false,
+                answerText: "False",
+                explanation: "High turbidity means water is cloudy/dirty. Safe drinking water is typically <30 NTU."
+            },
+            3: {
+                question: "Higher temperature increases molecular motion.",
+                answer: true,
+                answerText: "True",
+                explanation: "As temperature increases, particle motion rises; this is why the animation speeds up in the beaker."
+            }
+        };
+
+        // FUNCTIONS
+
+        function phColor(p) {
+            if (p < 7) return "#ff6b6b";
+            if (p == 7) return "#7bed9f";
+            return "#70a1ff";
+        }
+
+        function update() {
+
+            // Model small TDS impacts when pH moves away from neutral. This reflects a simplified learning relationship.
+            tds = Math.round(150 + Math.abs(ph - 7) * 15);
+
+            document.getElementById("phVal").innerText = ph;
+            document.getElementById("tempVal").innerText = temp;
+            document.getElementById("tdsVal").innerText = tds;
+            document.getElementById("turbVal").innerText = turb;
+
+            water.style.background = phColor(ph);
+            water.style.height = (60 + (temp / 50) * 15) + "%";
+            water.style.opacity = 1 - (turb / 100);
+
+            check();
+        }
+
+        function check() {
+
+            let safe = (ph >= 6.5 && ph <= 8.5 && tds < 300 && turb < 30);
+
+            document.getElementById("result").innerText = safe ? "Safe" : "Unsafe";
+
+            // Do not auto-complete. Submission handles completion logic.
+            if (level == 3 && userInteracted && !levelCompleted) {
+                document.getElementById("levelStatus").innerText = "Adjust temperature and when ready, click Submit.";
+            }
+        }
+
+        function completeLevel() {
+
+            if (!levelCompleted) {
+                document.getElementById("levelStatus").innerText = "✔ Completed";
+
+                score += 10;
+                document.getElementById("score").innerText = score;
+                document.getElementById("progressBar").style.width = (score / 40 * 100) + "%";
+
+                showQuiz();
+                levelCompleted = true;
+            }
+        }
+
+        function loadLevel() {
+
+            let data = levels[level];
+            let start = levelStartValues[level];
+
+            document.getElementById("levelTitle").innerText = data.title;
+            document.getElementById("objective").innerText = data.objective;
+            document.getElementById("task").innerText = data.task;
+            document.getElementById("keywords").innerText = data.keywords;
+
+            document.getElementById("quizPanel").style.display = "none";
+
+            if (start) {
+                ph = start.ph;
+                turb = start.turb;
+                temp = start.temp;
+                tds = start.tds;
+
+                phSlider.value = ph;
+                turbSlider.value = turb;
+                tempSlider.value = temp;
+                update();
+            }
+
+            // Reset quiz buttons
+            document.querySelectorAll("#quizPanel button").forEach(btn => btn.disabled = false);
+        }
+
+        function nextLevel() {
+            if (!levelCompleted) {
+                document.getElementById("levelStatus").innerText = "Complete current level first (Submit success).";
+                return;
+            }
+
+            level++;
+            if (level > 3) {
+                level = 1; // wrap after level 3 since level 4 removed
+                score = 0;
+                document.getElementById("score").innerText = score;
+                document.getElementById("progressBar").style.width = "0%";
+            }
+
+            userInteracted = false;   // ⭐ IMPORTANT
+            levelCompleted = false;
+
+            document.getElementById("quizPanel").style.display = "none";
+            document.getElementById("levelStatus").innerText = "";
+
+            loadLevel();
+        }
+        // QUIZ
+        function showQuiz() {
+
+            let q = quizQuestions[level];
+            document.getElementById("quizPanel").style.display = "block";
+            document.getElementById("quizQuestion").innerText = "True/False: " + q.question;
+            document.getElementById("quizResult").innerText = "";
+        }
+
+        function submitLevel() {
+            let correct = false;
+            if (level == 1) correct = (ph >= 6.5 && ph <= 8.5);
+            else if (level == 2) correct = (turb < 30);
+            else if (level == 3) correct = (temp > 35);
+
+            if (correct) {
+                completeLevel();
+                document.getElementById("levelStatus").innerText = "✔ Level complete: answer quiz to continue";
+            } else {
+                document.getElementById("levelStatus").innerText = "Try again: adjust parameters and press Submit";
+            }
+        }
+
+        function answerQuiz(choice) {
+
+            let q = quizQuestions[level];
+
+            if (choice === q.answer) {
+                document.getElementById("quizResult").innerText = "✔ Correct";
+                score += 5;
+            } else {
+                document.getElementById("quizResult").innerText = "✘ Wrong\nCorrect answer: " + q.answerText + ". " + q.explanation;
+            }
+
+            document.getElementById("score").innerText = score;
+            document.getElementById("progressBar").style.width = (score / 40 * 100) + "%";
+
+            // Disable quiz buttons after answering once
+            document.querySelectorAll("#quizPanel button").forEach(btn => btn.disabled = true);
+
+            // For level 1, auto next if correct; for others, user clicks Next Level
+            if (level == 1 && choice === q.answer) {
+                setTimeout(() => nextLevel(), 1000); // Delay for user to see result
+            }
+        }
+
+        // SAMPLE
+        function setSample(s) {
+
+            if (s == "river") { ph = 6.5; tds = 300; turb = 40; temp = 22; }
+            if (s == "tap") { ph = 7.2; tds = 150; turb = 10; temp = 25; }
+            if (s == "borewell") { ph = 8; tds = 450; turb = 20; temp = 28; }
+            if (s == "waste") { ph = 4.5; tds = 900; turb = 80; temp = 35; }
+
+            phSlider.value = ph;
+            turbSlider.value = turb;
+            tempSlider.value = temp;
+
+            update();
+
+            document.getElementById("sampleInfo").innerText = "Current Sample: " + s;
+        }
+
+        // MOLECULES
+        const canvas = document.getElementById("molecules");
+        const ctx = canvas.getContext("2d");
+
+        // helper to convert hex to rgba
+        function hexToRgba(hex, a) {
+            const h = hex.replace('#','');
+            const bigint = parseInt(h,16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return `rgba(${r},${g},${b},${a})`;
+        }
+
+        // initialize particles using canvas size
+        let particles = [];
+        function initParticles(count=140){
+            particles = [];
+            for (let i = 0; i < count; i++) {
+                particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: 0, vy: 0 });
+            }
+        }
+
+        initParticles();
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                let target = (temp / 15) + 0.3;
+
+                // jitter depends on temperature and turbidity
+                const jitter = target + turb/80;
+                p.vx += (Math.random() - 0.5) * jitter;
+                p.vy += (Math.random() - 0.5) * jitter * 0.6;
+
+                p.vx *= 0.94;
+                p.vy *= 0.94;
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // wrap horizontally for continuous flow
+                if (p.x > canvas.width + 6) p.x = -6;
+                if (p.x < -6) p.x = canvas.width + 6;
+                if (p.y > canvas.height) p.y = canvas.height;
+                if (p.y < 0) p.y = 0;
+
+                let r = 2 + temp / 26;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = hexToRgba(phColor(ph), Math.max(0.12, 1 - turb/120));
+                ctx.fill();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // start animation
+        animate();
+        loadLevel();
+        update();
+
+    </script>
+
+</body>
+
+</html>
