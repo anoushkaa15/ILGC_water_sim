@@ -197,6 +197,68 @@
       box-shadow: inset 0 10px 20px #ffffff22;
     }
 
+    .visual-stage {
+      margin: 14px 0 8px;
+      border: 1px solid #d6e0ec;
+      border-radius: 18px;
+      background: #eef5fc;
+      padding: 12px;
+      min-height: 240px;
+    }
+    .viz-card { background: #fff; border: 1px solid #d7e2ee; border-radius: 14px; padding: 12px; }
+    .ph-scale {
+      height: 24px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #f17171 0%, #f7c566 30%, #91d59b 50%, #77b5ff 70%, #8a7eff 100%);
+      position: relative;
+      margin-top: 10px;
+    }
+    .ph-safe {
+      position: absolute;
+      top: -5px;
+      height: 34px;
+      left: calc(6.5 / 14 * 100%);
+      width: calc((8.5 - 6.5) / 14 * 100%);
+      border: 2px dashed #1a8b54;
+      border-radius: 10px;
+      opacity: .75;
+    }
+    .ph-marker {
+      position: absolute;
+      top: -8px;
+      width: 16px;
+      height: 40px;
+      border-radius: 8px;
+      background: #0f172a;
+      box-shadow: 0 2px 6px #00000033;
+      transform: translateX(-50%);
+    }
+    .jar {
+      height: 160px;
+      border-radius: 14px;
+      border: 2px solid #bfd1e6;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f2fbff, #d8ecfb);
+      position: relative;
+      margin-bottom: 10px;
+    }
+    .jar-water {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 70%;
+      background: rgba(107, 150, 189, 0.85);
+      transition: .3s ease;
+    }
+    #moleculeCanvas {
+      width: 100%;
+      height: 210px;
+      border-radius: 14px;
+      border: 1px solid #c9d8ea;
+      background: radial-gradient(circle at 20% 20%, #f8fdff, #d8ecfa);
+    }
+
     .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 8px 14px; border: 1px solid #a5c3e4; background: #dbe8f8; }
 
     .card-list { display: grid; gap: 10px; margin-top: 10px; }
@@ -360,7 +422,31 @@
         <article class="panel">
           <h3 id="leftHeading">Dirty River Water</h3>
           <p id="leftSub" class="subtext">Goal: remove mud → color using filtration layers.</p>
-          <div id="waterOrb" class="water-orb"></div>
+          <div class="visual-stage">
+            <div id="phScaleViz" class="viz-card hidden">
+              <strong>pH Scale Visual</strong>
+              <div class="subtext">Drag pH cards and watch marker shift.</div>
+              <div class="ph-scale">
+                <div class="ph-safe"></div>
+                <div id="phMarker" class="ph-marker" style="left:50%"></div>
+              </div>
+              <div id="phReadout" class="subtext" style="margin-top:8px">Current sample pH: 7.0</div>
+            </div>
+
+            <div id="turbViz" class="viz-card hidden">
+              <strong>Turbidity Jar</strong>
+              <div class="subtext">Lower NTU makes water clearer.</div>
+              <div class="jar">
+                <div id="turbWater" class="jar-water"></div>
+              </div>
+              <div id="ntuReadout" class="subtext">Estimated turbidity: 90 NTU</div>
+            </div>
+
+            <div id="moleculeViz" class="hidden">
+              <canvas id="moleculeCanvas" width="420" height="210"></canvas>
+              <div id="moleculeStats" class="subtext" style="margin-top:8px"></div>
+            </div>
+          </div>
           <div class="chip"><span>〰</span><span id="contaminantTag">mud</span></div>
           <div id="leftStatus" class="status-banner hidden"></div>
         </article>
@@ -502,10 +588,25 @@
     const pathDots = document.getElementById("pathDots");
     const materialList = document.getElementById("materialList");
     const slots = document.getElementById("slots");
-    const waterOrb = document.getElementById("waterOrb");
+    const phScaleViz = document.getElementById("phScaleViz");
+    const turbViz = document.getElementById("turbViz");
+    const moleculeViz = document.getElementById("moleculeViz");
+    const phMarker = document.getElementById("phMarker");
+    const phReadout = document.getElementById("phReadout");
+    const turbWater = document.getElementById("turbWater");
+    const ntuReadout = document.getElementById("ntuReadout");
+    const moleculeCanvas = document.getElementById("moleculeCanvas");
+    const moleculeCtx = moleculeCanvas.getContext("2d");
+    const moleculeStats = document.getElementById("moleculeStats");
     const feedback = document.getElementById("feedback");
     const leftStatus = document.getElementById("leftStatus");
     const hintBox = document.getElementById("hintBox");
+    let molecules = Array.from({ length: 46 }, () => ({
+      x: Math.random() * moleculeCanvas.width,
+      y: Math.random() * moleculeCanvas.height,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: (Math.random() - 0.5) * 1.2
+    }));
 
     function renderHomeLevels() {
       homeLevelGrid.innerHTML = Object.entries(levels).map(([id, l]) => `
@@ -581,14 +682,12 @@
 
       document.getElementById("level3Controls").classList.toggle("hidden", state.currentLevel !== 3);
       document.getElementById("contaminantTag").innerText = state.currentLevel === 1 ? "pH" : state.currentLevel === 2 ? "turbidity" : "temperature";
-
-      if (state.currentLevel === 1) {
-        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #a58872, #6b5441 65%, #563f2f)";
-      } else if (state.currentLevel === 2) {
-        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #95a4b7, #4d5f75 65%, #364457)";
-      } else {
-        updateLevel3Orb();
-      }
+      phScaleViz.classList.toggle("hidden", state.currentLevel !== 1);
+      turbViz.classList.toggle("hidden", state.currentLevel !== 2);
+      moleculeViz.classList.toggle("hidden", state.currentLevel !== 3);
+      if (state.currentLevel === 1) updateLevel1Viz(7);
+      if (state.currentLevel === 2) updateLevel2Viz(90);
+      if (state.currentLevel === 3) updateLevel3Viz();
 
       const randomized = [...levelData.items].sort(() => Math.random() - 0.5);
       randomized.forEach(item => {
@@ -628,6 +727,18 @@
       el.innerText = state.draggedItem;
       feedback.classList.remove("hidden");
       feedback.innerText = `Placed ${state.draggedItem}.`;
+      if (state.currentLevel === 1) {
+        const pHMap = {
+          "Lemon Juice (pH 2)": 2,
+          "Pure Water (pH 7)": 7,
+          "Soap Solution (pH 10)": 10
+        };
+        updateLevel1Viz(pHMap[state.draggedItem] ?? 7);
+      }
+      if (state.currentLevel === 2) {
+        const phase = state.stepsPlaced.filter(Boolean).length;
+        updateLevel2Viz(Math.max(12, 90 - phase * 25));
+      }
       updatePlacedCount();
       checkCompletion();
     }
@@ -641,6 +752,10 @@
       el.innerText = "drop here";
       feedback.classList.remove("hidden");
       feedback.innerText = "Undid last step.";
+      if (state.currentLevel === 2) {
+        const phase = state.stepsPlaced.filter(Boolean).length;
+        updateLevel2Viz(Math.max(12, 90 - phase * 25));
+      }
       updatePlacedCount();
     }
 
@@ -693,15 +808,8 @@
       feedback.style.borderColor = "#e5d089";
       feedback.innerText = "Great! Click Next for the next adventure.";
 
-      if (state.currentLevel === 1) {
-        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #b5f0fb, #45cae5 62%, #1bb8dc)";
-      }
-      if (state.currentLevel === 2) {
-        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #c9f4ff, #6fcbef 64%, #2ea4d0)";
-      }
-      if (state.currentLevel === 3) {
-        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #d8f9ff, #56d2ee 62%, #1f9fcb)";
-      }
+      if (state.currentLevel === 1) updateLevel1Viz(7);
+      if (state.currentLevel === 2) updateLevel2Viz(10);
     }
 
     function nextLevel() {
@@ -717,16 +825,45 @@
       hintBox.classList.remove("hidden");
     }
 
-    function updateLevel3Orb() {
-      const p = state.ph;
-      const t = state.turb;
-      const base = (p < 6.5) ? "#f28181" : (p > 8.5 ? "#7e9dff" : "#40c8e4");
-      const dark = t > 40 ? "#5f6d82" : base;
-      waterOrb.style.background = `radial-gradient(circle at 30% 25%, #d8f9ff, ${base} 60%, ${dark})`;
+    function updateLevel1Viz(pHValue) {
+      phMarker.style.left = `${(pHValue / 14) * 100}%`;
+      phReadout.innerText = `Current sample pH: ${pHValue.toFixed(1)}`;
+    }
 
+    function updateLevel2Viz(ntu) {
+      const opacity = Math.min(0.92, 0.22 + ntu / 130);
+      turbWater.style.background = `rgba(98, 132, 168, ${opacity})`;
+      ntuReadout.innerText = `Estimated turbidity: ${ntu} NTU`;
+    }
+
+    function updateLevel3Viz() {
       document.getElementById("phVal").innerText = state.ph.toFixed(1);
       document.getElementById("turbVal").innerText = String(state.turb);
       document.getElementById("tempVal").innerText = String(state.temp);
+      const speed = (state.temp / 45) * (state.motionReduced ? 0.45 : 1.6) + 0.2;
+      const radius = 1.8 + (state.temp / 45) * 3.2;
+      const spread = 0.8 + (state.temp / 45) * 2.1;
+      const tint = state.ph < 6.5 ? "231, 120, 120" : state.ph > 8.5 ? "125, 145, 238" : "70, 195, 227";
+
+      moleculeCtx.clearRect(0, 0, moleculeCanvas.width, moleculeCanvas.height);
+      molecules.forEach(p => {
+        p.vx += (Math.random() - 0.5) * 0.18 * speed;
+        p.vy += (Math.random() - 0.5) * 0.18 * speed;
+        p.x += p.vx * spread;
+        p.y += p.vy * spread;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        if (p.x < 0 || p.x > moleculeCanvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > moleculeCanvas.height) p.vy *= -1;
+        p.x = Math.max(0, Math.min(moleculeCanvas.width, p.x));
+        p.y = Math.max(0, Math.min(moleculeCanvas.height, p.y));
+        moleculeCtx.beginPath();
+        moleculeCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        moleculeCtx.fillStyle = `rgba(${tint}, ${Math.max(0.25, 1 - state.turb / 120)})`;
+        moleculeCtx.fill();
+      });
+
+      moleculeStats.innerText = `Motion index: ${speed.toFixed(2)} · Molecule size index: ${radius.toFixed(2)} · Higher temperature makes faster/larger-looking particles.`;
     }
 
     function submitLevel3() {
@@ -790,15 +927,15 @@
 
     document.getElementById("phSlider").addEventListener("input", e => {
       state.ph = parseFloat(e.target.value);
-      updateLevel3Orb();
+      updateLevel3Viz();
     });
     document.getElementById("turbSlider").addEventListener("input", e => {
       state.turb = parseInt(e.target.value, 10);
-      updateLevel3Orb();
+      updateLevel3Viz();
     });
     document.getElementById("tempSlider").addEventListener("input", e => {
       state.temp = parseInt(e.target.value, 10);
-      updateLevel3Orb();
+      updateLevel3Viz();
     });
 
     document.getElementById("reduceMotionBtn").addEventListener("click", (e) => {
@@ -815,7 +952,11 @@
     renderHomeLevels();
     renderPath();
     updateCoins(0);
-    updateLevel3Orb();
+    function animateMolecules() {
+      if (state.currentLevel === 3) updateLevel3Viz();
+      requestAnimationFrame(animateMolecules);
+    }
+    animateMolecules();
   </script>
 </body>
 </html>
