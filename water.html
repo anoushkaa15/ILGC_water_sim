@@ -408,58 +408,75 @@
   <script>
     const levels = {
       1: {
-        title: "Level 1: Filtration Basics (Grades 6–7)",
-        meta: "Cleanliness 0% · Safety 50 · Efficiency 50 · Budget ₹100",
-        leftHeading: "Dirty River Water",
-        leftSub: "Goal: remove mud → color using filtration layers.",
-        centerHeading: "Materials",
-        centerSub: "Drag a material into a slot. (Order is randomized each run.)",
-        rightHeading: "Filter Slots",
-        rightSub: "Pick the correct layers to clean muddy water.",
+        title: "Level 1: pH Detective (Grades 6–7)",
+        meta: "Topic: pH scale · Safe range · Acid/Neutral/Base",
+        leftHeading: "pH Classification Challenge",
+        leftSub: "Goal: arrange samples from most acidic to most basic.",
+        centerHeading: "Sample Cards",
+        centerSub: "Drag each card into the pH order slots.",
+        rightHeading: "pH Order Slots",
+        rightSub: "Slot 1 = lowest pH. Slot 3 = highest pH.",
         items: [
-          { name: "Sand", removes: "mud", good: true },
-          { name: "Charcoal", removes: "color", good: true },
-          { name: "Gravel", removes: "stones", good: true },
-          { name: "Plastic", removes: "nothing", good: false }
+          { name: "Lemon Juice (pH 2)", removes: "acidic sample" },
+          { name: "Pure Water (pH 7)", removes: "neutral sample" },
+          { name: "Soap Solution (pH 10)", removes: "basic sample" }
         ],
+        correctOrder: ["Lemon Juice (pH 2)", "Pure Water (pH 7)", "Soap Solution (pH 10)"],
         slots: 3,
-        hints: "Try Gravel first for big particles, then Sand, then Charcoal.",
-        successText: "Level 1 complete: water is clear!",
+        hints: "Think low pH (acid) to high pH (base). 7 is neutral.",
+        successText: "Level 1 complete: pH sequence is correct!",
+        quiz: {
+          question: "True or False: pH 7 is neutral.",
+          answer: true,
+          success: "Correct! pH 7 is neutral."
+        }
       },
       2: {
-        title: "Level 2: Treatment Plant (Grades 8–9)",
-        meta: "Cleanliness 100% · Safety 50 · Efficiency 80 · Budget ₹100",
-        leftHeading: "Treatment Steps",
-        leftSub: "Drag steps into the pipeline in the correct order.",
-        centerHeading: "Pipeline",
-        centerSub: "Drop each step in sequence, then activate all to complete treatment.",
-        rightHeading: "Consequences",
-        rightSub: "Wrong order lowers safety. Correct logic unlocks delivery to homes.",
+        title: "Level 2: Turbidity Control (Grades 8–9)",
+        meta: "Topic: cloudiness (NTU) · settling · filtration",
+        leftHeading: "Turbidity Reduction Plan",
+        leftSub: "Goal: build a process that lowers cloudy water safely.",
+        centerHeading: "Treatment Actions",
+        centerSub: "Drag actions into an effective order to reduce NTU.",
+        rightHeading: "Process Slots",
+        rightSub: "Use first → last logic from dirty water to clear water.",
         items: [
-          { name: "Screening", removes: "big debris", good: true },
-          { name: "Coagulation", removes: "fine particles", good: true },
-          { name: "Flocculation", removes: "clumped flocs", good: true },
-          { name: "Filtration", removes: "remaining solids", good: true },
-          { name: "Chlorination", removes: "pathogens", good: true }
+          { name: "Add Coagulant", removes: "bind fine particles" },
+          { name: "Allow Settling", removes: "drop heavy flocs" },
+          { name: "Filter Media", removes: "remove small particles" }
         ],
-        correctOrder: ["Screening", "Coagulation", "Flocculation", "Filtration", "Chlorination"],
-        slots: 5,
-        hints: "Think from raw intake to final disinfection.",
-        successText: "Level 2 complete: treatment pipeline validated!"
+        correctOrder: ["Add Coagulant", "Allow Settling", "Filter Media"],
+        slots: 3,
+        hints: "First clump particles, then settle, then filter.",
+        successText: "Level 2 complete: turbidity treatment sequence is correct!",
+        quiz: {
+          question: "True or False: High turbidity means clear water.",
+          answer: false,
+          success: "Correct! High turbidity means cloudy/dirty water."
+        }
       },
       3: {
-        title: "Level 3: Save AquaTown (Grades 10–12)",
-        meta: "Final Assessment · Quality + Risk + pH Logic",
-        leftHeading: "Final Water Quality Check",
-        leftSub: "Set safe pH and turbidity, then answer the concept quiz.",
+        title: "Level 3: Temperature & Motion Lab (Grades 10–12)",
+        meta: "Topic: molecular movement · thermal effects · safety targets",
+        leftHeading: "Dynamic Water Model",
+        leftSub: "Set safe pH/turbidity and test temperature impact on molecules.",
         centerHeading: "Quality Controls",
-        centerSub: "Tune values until water is safe for public supply.",
+        centerSub: "Use sliders, then drag the correct temperature concept card.",
         rightHeading: "Mission Console",
-        rightSub: "Meet quality targets then finish the final question.",
-        items: [],
+        rightSub: "Complete controls + concept check to finish final mission.",
+        items: [
+          { name: "Higher temp → faster molecules", removes: "correct concept" },
+          { name: "Higher temp → slower molecules", removes: "incorrect concept" }
+        ],
+        correctOrder: ["Higher temp → faster molecules"],
         slots: 1,
-        hints: "Safe drinking range: pH 6.5–8.5 and low turbidity.",
-        successText: "Level 3 complete: AquaTown receives safe tap water!"
+        hints: "Higher temperature increases kinetic energy and motion.",
+        successText: "Level 3 complete: quality targets and concept mastery achieved!",
+        quiz: {
+          question: "True or False: Higher temperature can make particles appear more spread out.",
+          answer: true,
+          success: "Correct! Heat increases motion and can increase spacing."
+        }
       }
     };
 
@@ -474,8 +491,9 @@
       ph: 7,
       turb: 45,
       temp: 25,
-      level3Passed: false,
-      quizDone: false
+      controlsPassed: false,
+      quizDone: false,
+      levelPassed: false
     };
 
     const homeLevelGrid = document.getElementById("homeLevelGrid");
@@ -534,13 +552,16 @@
       state.currentLevel = levelId;
       state.stepsPlaced = [];
       state.draggedItem = null;
-      state.level3Passed = false;
+      state.controlsPassed = false;
       state.quizDone = false;
+      state.levelPassed = false;
       homeScreen.classList.remove("active");
       gameScreen.classList.add("active");
       hintBox.classList.add("hidden");
       leftStatus.classList.add("hidden");
       feedback.classList.add("hidden");
+      feedback.style.background = "#fff3d2";
+      feedback.style.borderColor = "#e5d089";
       document.getElementById("quizArea").classList.add("hidden");
       applyLevelText(levelId);
       renderPath();
@@ -559,7 +580,7 @@
       slots.innerHTML = "";
 
       document.getElementById("level3Controls").classList.toggle("hidden", state.currentLevel !== 3);
-      document.getElementById("contaminantTag").innerText = state.currentLevel === 1 ? "mud" : state.currentLevel === 2 ? "process" : "quality";
+      document.getElementById("contaminantTag").innerText = state.currentLevel === 1 ? "pH" : state.currentLevel === 2 ? "turbidity" : "temperature";
 
       if (state.currentLevel === 1) {
         waterOrb.style.background = "radial-gradient(circle at 30% 25%, #a58872, #6b5441 65%, #563f2f)";
@@ -569,18 +590,16 @@
         updateLevel3Orb();
       }
 
-      if (state.currentLevel !== 3) {
-        const randomized = [...levelData.items].sort(() => Math.random() - 0.5);
-        randomized.forEach(item => {
-          const card = document.createElement("div");
-          card.className = "material";
-          card.draggable = true;
-          card.dataset.name = item.name;
-          card.innerHTML = `<strong>${item.name}</strong><small>Removes: ${item.removes}</small>`;
-          card.addEventListener("dragstart", () => state.draggedItem = item.name);
-          materialList.appendChild(card);
-        });
-      }
+      const randomized = [...levelData.items].sort(() => Math.random() - 0.5);
+      randomized.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "material";
+        card.draggable = true;
+        card.dataset.name = item.name;
+        card.innerHTML = `<strong>${item.name}</strong><small>Role: ${item.removes}</small>`;
+        card.addEventListener("dragstart", () => state.draggedItem = item.name);
+        materialList.appendChild(card);
+      });
 
       for (let i = 0; i < levelData.slots; i++) {
         const el = document.createElement("div");
@@ -595,10 +614,7 @@
         slots.appendChild(el);
       }
 
-      if (state.currentLevel === 3) {
-        materialList.innerHTML = `<div class="subtext">No drag cards here. Use sliders + quiz to finish the mission.</div>`;
-        renderLevel3Quiz();
-      }
+      if (state.currentLevel === 3) renderLevel3Quiz();
 
       updatePlacedCount();
     }
@@ -641,22 +657,25 @@
       if (placed.length < requiredCount) return;
 
       let success = false;
-      if (state.currentLevel === 1) {
-        const needs = ["Sand", "Charcoal", "Gravel"];
-        success = needs.every(n => placed.includes(n));
-      }
-
-      if (state.currentLevel === 2) {
+      if (state.currentLevel === 1 || state.currentLevel === 2) {
         success = JSON.stringify(placed) === JSON.stringify(levelData.correctOrder);
       }
 
+      if (state.currentLevel === 3) {
+        success = JSON.stringify(placed) === JSON.stringify(levelData.correctOrder) && state.controlsPassed;
+      }
+
       if (success) {
+        state.levelPassed = true;
         markLevelComplete(levelData.successText);
+        renderQuiz(levelData.quiz);
       } else {
         feedback.classList.remove("hidden");
         feedback.style.background = "#ffe3e3";
         feedback.style.borderColor = "#efb5b5";
-        feedback.innerText = "Not quite. Use Hint and reorder with Undo.";
+        feedback.innerText = state.currentLevel === 3
+          ? "You need BOTH: safe control values + correct concept card."
+          : "Not quite. Use Hint and reorder with Undo.";
       }
     }
 
@@ -679,6 +698,9 @@
       }
       if (state.currentLevel === 2) {
         waterOrb.style.background = "radial-gradient(circle at 30% 25%, #c9f4ff, #6fcbef 64%, #2ea4d0)";
+      }
+      if (state.currentLevel === 3) {
+        waterOrb.style.background = "radial-gradient(circle at 30% 25%, #d8f9ff, #56d2ee 62%, #1f9fcb)";
       }
     }
 
@@ -708,45 +730,61 @@
     }
 
     function submitLevel3() {
-      const safe = state.ph >= 6.5 && state.ph <= 8.5 && state.turb <= 30;
+      const safe = state.ph >= 6.5 && state.ph <= 8.5 && state.turb <= 30 && state.temp >= 30;
       const out = document.getElementById("l3Result");
       out.classList.remove("hidden");
       if (safe) {
         out.style.background = "#dff5ea";
         out.style.borderColor = "#9cd9bb";
-        out.innerText = "Water quality safe. Now complete the final quiz.";
-        state.level3Passed = true;
+        out.innerText = "Controls passed! Now place the correct temperature concept card.";
+        state.controlsPassed = true;
       } else {
         out.style.background = "#ffe3e3";
         out.style.borderColor = "#efb5b5";
-        out.innerText = "Unsafe settings. Aim for pH 6.5–8.5 and turbidity ≤ 30.";
+        out.innerText = "Target: pH 6.5–8.5, turbidity ≤ 30 NTU, temperature ≥ 30°C.";
+        state.controlsPassed = false;
       }
+      checkCompletion();
     }
 
     function renderLevel3Quiz() {
       const qa = document.getElementById("quizArea");
       qa.classList.remove("hidden");
+      qa.innerHTML = `<strong>Final Quiz</strong><p class="subtext">Complete mission tasks to unlock quiz.</p>`;
+    }
+
+    function renderQuiz(quiz) {
+      if (!quiz) return;
+      const qa = document.getElementById("quizArea");
+      qa.classList.remove("hidden");
       qa.innerHTML = `
-        <strong>Final Quiz:</strong>
-        <p>True or False: pH 7 is neutral and typically safest for drinking water chemistry balance.</p>
-        <button class="btn" onclick="answerL3Quiz(true)">True</button>
-        <button class="btn" onclick="answerL3Quiz(false)">False</button>
+        <strong>Checkpoint Quiz:</strong>
+        <p>${quiz.question}</p>
+        <button class="btn" onclick="answerQuiz(true)">True</button>
+        <button class="btn" onclick="answerQuiz(false)">False</button>
         <div id="quizResult" class="subtext" style="margin-top:8px"></div>
       `;
     }
 
-    function answerL3Quiz(choice) {
+    function answerQuiz(choice) {
+      const quiz = levels[state.currentLevel].quiz;
       const result = document.getElementById("quizResult");
-      if (!state.level3Passed) {
-        result.innerText = "First pass water-quality controls, then answer the quiz.";
+      if (!state.levelPassed) {
+        result.innerText = "Complete the level task first.";
         return;
       }
-      if (choice === true) {
-        result.innerText = "Correct! Mission complete.";
-        state.quizDone = true;
-        markLevelComplete(levels[3].successText);
+      if (choice === quiz.answer) {
+        result.innerText = quiz.success;
+        if (!state.quizDone) {
+          updateCoins(10);
+          state.quizDone = true;
+          feedback.classList.remove("hidden");
+          feedback.style.background = "#fff3d2";
+          feedback.style.borderColor = "#e5d089";
+          feedback.innerText = "Quiz bonus +10 coins awarded.";
+        }
       } else {
-        result.innerText = "Not quite. Neutral pH is 7.";
+        result.innerText = "Not correct. Try once more.";
       }
     }
 
