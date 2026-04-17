@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FlowQuest Style Water Simulation</title>
+  <title>HydroLab Water Simulation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -69,17 +69,6 @@
     .brand h1 { margin: 0; font-size: 34px; letter-spacing: -0.02em; }
     .brand p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
 
-    .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .pill-btn {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: #101625;
-      border-radius: 999px;
-      padding: 12px 18px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-    }
     .goal-note { color: #4f5c74; font-size: 14px; }
 
     .container {
@@ -368,23 +357,19 @@
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div>
-        <h1>FlowQuest</h1>
+        <h1>HydroLab</h1>
         <p>From River to Tap: Clean Water Adventure</p>
       </div>
     </div>
 
-    <div class="top-actions">
-      <button id="reduceMotionBtn" class="pill-btn">◈ Reduce Motion: OFF</button>
-      <button id="soundBtn" class="pill-btn">🔊 Sound: ON</button>
-      <span class="goal-note">Goal: teach water treatment through gameplay + consequences.</span>
-    </div>
+    <span class="goal-note">Goal: teach water ph, turbidity levels through gameplay + consequences.</span>
   </header>
 
   <main class="container">
     <section id="homeScreen" class="screen active">
       <article class="big-card">
         <h2 style="margin:0; font-size:48px;">Choose a level</h2>
-        <p class="subtext" style="font-size:22px;">This simulation is now rebuilt in a FlowQuest-inspired style with progressive learning levels.</p>
+        <p class="subtext" style="font-size:22px;">This simulation uses a game-style layout with progressive learning levels.</p>
 
         <div class="level-grid" id="homeLevelGrid"></div>
 
@@ -484,8 +469,8 @@
   <aside class="assistant">
     <div class="face">💧</div>
     <div>
-      <strong>Aqua</strong>
-      <div id="assistantText">Hi! I’m Aqua. Let’s turn river water into safe tap water!</div>
+      <strong>Neri</strong>
+      <div id="assistantText">Hi! I’m Neri. Let’s make water safer step by step.</div>
     </div>
   </aside>
 
@@ -572,8 +557,6 @@
       stepsPlaced: [],
       draggedItem: null,
       completed: new Set(),
-      motionReduced: false,
-      soundOn: true,
       ph: 7,
       turb: 45,
       temp: 25,
@@ -646,7 +629,7 @@
       document.getElementById("centerSub").innerText = l.centerSub;
       document.getElementById("rightHeading").innerText = l.rightHeading;
       document.getElementById("rightSub").innerText = l.rightSub;
-      document.getElementById("assistantText").innerText = "Aqua: " + l.hints;
+      document.getElementById("assistantText").innerText = "Neri: " + l.hints;
     }
 
     function startLevel(levelId) {
@@ -840,7 +823,7 @@
       document.getElementById("phVal").innerText = state.ph.toFixed(1);
       document.getElementById("turbVal").innerText = String(state.turb);
       document.getElementById("tempVal").innerText = String(state.temp);
-      const speed = (state.temp / 45) * (state.motionReduced ? 0.45 : 1.6) + 0.2;
+      const speed = (state.temp / 45) * 1.6 + 0.2;
       const radius = 1.8 + (state.temp / 45) * 3.2;
       const spread = 0.8 + (state.temp / 45) * 2.1;
       const tint = state.ph < 6.5 ? "231, 120, 120" : state.ph > 8.5 ? "125, 145, 238" : "70, 195, 227";
@@ -936,17 +919,6 @@
     document.getElementById("tempSlider").addEventListener("input", e => {
       state.temp = parseInt(e.target.value, 10);
       updateLevel3Viz();
-    });
-
-    document.getElementById("reduceMotionBtn").addEventListener("click", (e) => {
-      state.motionReduced = !state.motionReduced;
-      e.target.innerText = `◈ Reduce Motion: ${state.motionReduced ? "ON" : "OFF"}`;
-      document.documentElement.style.setProperty("--shadow", state.motionReduced ? "0 4px 8px rgba(0,34,68,.06)" : "0 14px 28px rgba(0,34,68,.08)");
-    });
-
-    document.getElementById("soundBtn").addEventListener("click", (e) => {
-      state.soundOn = !state.soundOn;
-      e.target.innerText = `🔊 Sound: ${state.soundOn ? "ON" : "OFF"}`;
     });
 
     renderHomeLevels();
