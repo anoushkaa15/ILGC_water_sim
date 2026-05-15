@@ -738,7 +738,54 @@ function startLevel(id){
   showScreen('gameScreen'); applyLevelText(id); renderLevelUI();
 }
 function exitToHome(){ showScreen('homeScreen'); }
-function nextLevel(){ startLevel(state.currentLevel===4?1:state.currentLevel+1); }
+async function nextLevel(){
+
+  /* IF USER IS ON LEVEL 4 */
+  if(state.currentLevel === 4){
+
+    try{
+
+      // Disable button while saving
+      const nextBtn = document.getElementById('nextBtn');
+
+      nextBtn.disabled = true;
+
+      nextBtn.innerHTML = `
+        <span class="spinner"></span>
+        Saving...
+      `;
+
+      // Save leaderboard score
+      await DB.upsertScore(
+        state.playerName || state.name,
+        state.coins || 0,
+        4
+      );
+
+      // Go directly to leaderboard
+      showScreen('leaderboardScreen');
+
+      // Refresh leaderboard
+      loadAndRenderLeaderboard();
+
+      // Reset button text
+      nextBtn.disabled = false;
+      nextBtn.innerHTML = '🏆 Leaderboard';
+
+    }catch(error){
+
+      console.error('Leaderboard save failed:', error);
+
+      alert('Failed to save score.');
+
+    }
+
+    return;
+  }
+
+  /* NORMAL LEVEL FLOW */
+  startLevel(state.currentLevel + 1);
+}
 
 /* ─── APPLY LEVEL TEXT ─── */
 function applyLevelText(id){
