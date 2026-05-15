@@ -6,7 +6,42 @@
 <title>HydroLab – Clean Water Quest</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!--
+  ═══════════════════════════════════════════════════════════════
+  FIREBASE SDK  (v9 compat bundle — works without a build step)
+  Swap the firebaseConfig object below with your own project keys.
+  Get them from: Firebase Console → Project Settings → Web App
+  ═══════════════════════════════════════════════════════════════
+-->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+/* ── REPLACE THIS BLOCK WITH YOUR OWN FIREBASE CONFIG ── */
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+/* ────────────────────────────────────────────────────── */
+
+let db = null;  // populated after init attempt below
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  // Keep offline cache so the app still works without internet
+  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+  console.log('[HydroLab] Firebase connected ✓');
+} catch (e) {
+  console.warn('[HydroLab] Firebase unavailable – falling back to localStorage:', e.message);
+}
+</script>
+
 <style>
+/* ═══════════════ DESIGN TOKENS ═══════════════ */
 :root{
   --bg:#0a1628;--surface:#101f38;--card:#131e32;--card2:#1a2740;
   --text:#e8edf5;--muted:#8a9ab5;--line:#1e2f4a;
@@ -48,29 +83,30 @@ select:focus,input:focus{outline:2px solid var(--primary);border-color:transpare
 .name-form label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;text-align:left}
 .name-form input{width:100%;margin-bottom:12px;font-size:15px}
 .name-form select{width:100%;margin-bottom:16px}
-.btn-primary{background:linear-gradient(135deg,#00c6ff,#7c6af7);color:#fff;border:none;border-radius:12px;padding:12px 24px;font-family:var(--font-body);font-size:15px;font-weight:600;cursor:pointer;width:100%;transition:opacity .2s,transform .2s}
+.btn-primary{background:linear-gradient(135deg,#00c6ff,#7c6af7);color:#fff;border:none;border-radius:12px;padding:12px 24px;font-family:var(--font-body);font-size:15px;font-weight:600;cursor:pointer;width:100%;transition:opacity .2s,transform .2s;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .btn{background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px 18px;font-family:var(--font-body);font-size:14px;font-weight:500;cursor:pointer;transition:background .2s}
 .btn:hover{background:var(--line)}
 .err{color:var(--danger);font-size:13px;margin-top:6px;min-height:18px}
+
+/* ─── DB STATUS PILL ─── */
+.db-pill{font-size:11px;padding:3px 10px;border-radius:100px;border:1px solid;font-weight:500}
+.db-pill.live{background:rgba(31,219,138,0.12);border-color:rgba(31,219,138,0.3);color:var(--ok)}
+.db-pill.local{background:rgba(255,190,77,0.12);border-color:rgba(255,190,77,0.3);color:var(--warn)}
 
 /* ─── HOME ─── */
 .home-header{margin-bottom:28px}
 .home-header h2{font-family:var(--font-head);font-size:32px;font-weight:800}
 .home-header p{color:var(--muted);font-size:15px;margin-top:4px}
 .levels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:28px}
-.level-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;cursor:pointer;transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
-.level-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--lc1,#00c6ff)08,var(--lc2,#7c6af7)08);opacity:0;transition:opacity .3s}
-.level-card:hover{border-color:var(--primary);transform:translateY(-2px)}
-.level-card:hover::before{opacity:1}
-.level-card.locked{opacity:.5;cursor:default}
+.level-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+.level-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,198,255,0.12)}
 .level-num{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
 .level-title{font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:8px}
 .level-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
 .level-meta{display:flex;gap:8px;flex-wrap:wrap}
 .tag{background:rgba(0,198,255,0.1);border:1px solid rgba(0,198,255,0.2);color:var(--primary);border-radius:100px;padding:3px 10px;font-size:11px}
-.tag.purple{background:rgba(124,106,247,0.1);border-color:rgba(124,106,247,0.2);color:#a89bf8}
-.tag.green{background:rgba(31,219,138,0.1);border-color:rgba(31,219,138,0.2);color:var(--ok)}
 .level-stars{position:absolute;top:18px;right:18px;font-size:20px}
 .home-actions{display:flex;gap:12px;flex-wrap:wrap}
 
@@ -84,6 +120,11 @@ select:focus,input:focus{outline:2px solid var(--primary);border-color:transpare
 .lb-name{font-weight:500}
 .lb-score{color:var(--primary);font-weight:600}
 .lb-you{background:rgba(0,198,255,0.06)!important}
+.lb-loading{text-align:center;padding:28px;color:var(--muted);font-size:14px}
+
+/* ─── SPINNER ─── */
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ─── GAME HUD ─── */
 .hud{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
@@ -102,22 +143,55 @@ select:focus,input:focus{outline:2px solid var(--primary);border-color:transpare
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
 .panel h3{font-family:var(--font-head);font-size:16px;font-weight:700;margin-bottom:4px}
 .panel p.sub{font-size:13px;color:var(--muted);margin-bottom:14px}
-.video-wrap{border-radius:12px;overflow:hidden;margin-bottom:16px}
-.video-wrap iframe{width:100%;aspect-ratio:16/9;border:0;display:block}
+
+/* ─── VIDEO (FIX: proper responsive embed) ─── */
+.video-wrap{border-radius:12px;overflow:hidden;margin-bottom:16px;position:relative;padding-bottom:56.25%;height:0}
+.video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;display:block}
+
 .goals-section h4{font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px}
 .goals-section li{font-size:13px;color:var(--text);margin-bottom:6px;padding-left:4px;line-height:1.5}
 .goals-section ul{padding-left:18px;list-style:disc}
 
-/* ─── DRAG ITEMS ─── */
-.material-item{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:grab;margin-bottom:8px;transition:border-color .2s,transform .15s;display:flex;justify-content:space-between;align-items:center}
+/* ─── DRAG ITEMS (FIX: free rearrangement) ─── */
+.drag-container{min-height:40px}
+.material-item{
+  background:var(--card2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;cursor:grab;margin-bottom:8px;
+  transition:border-color .15s,transform .15s,box-shadow .15s,opacity .15s;
+  display:flex;justify-content:space-between;align-items:center;
+  user-select:none;-webkit-user-select:none;
+}
 .material-item:hover{border-color:var(--primary);transform:translateX(2px)}
-.material-item:active{cursor:grabbing}
+.material-item:active,.material-item.dragging{
+  cursor:grabbing;opacity:.5;transform:scale(0.97);
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);border-color:var(--primary);
+}
+.material-item.drag-over-above{border-top:2px solid var(--primary);margin-top:-1px}
+.material-item.drag-over-below{border-bottom:2px solid var(--primary);margin-bottom:-1px}
 .material-name{font-size:13px;font-weight:500}
 .material-role{font-size:11px;color:var(--muted)}
+.drag-ghost{pointer-events:none;position:fixed;z-index:9999;opacity:.85;background:var(--card2);border:1px solid var(--primary);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:500;color:var(--text);box-shadow:0 8px 32px rgba(0,198,255,0.2);white-space:nowrap}
+
+/* ─── SLOTS (FIX: re-draggable filled slots) ─── */
 .slots-grid{display:grid;gap:10px;margin-top:10px}
-.slot{min-height:60px;border:1px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);transition:border-color .2s,background .2s}
-.slot.over{border-color:var(--primary);background:rgba(0,198,255,0.05)}
-.slot.filled{background:var(--card2);border-style:solid;border-color:var(--ok);color:var(--text);font-weight:500;font-size:13px;padding:8px 14px;justify-content:flex-start}
+.slot{
+  min-height:60px;border:1.5px dashed var(--line);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:var(--muted);
+  transition:border-color .2s,background .2s,box-shadow .2s;
+  position:relative;
+}
+.slot.drag-active{border-color:var(--primary);background:rgba(0,198,255,0.06);box-shadow:0 0 0 3px rgba(0,198,255,0.15)}
+.slot.filled{
+  background:var(--card2);border-style:solid;border-color:var(--ok);
+  color:var(--text);font-weight:500;font-size:13px;
+  padding:8px 14px 8px 12px;justify-content:space-between;cursor:grab;
+}
+.slot.filled:hover{border-color:var(--warn)}
+.slot.filled:active{cursor:grabbing;opacity:.7}
+.slot-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 0 0 8px;transition:color .15s}
+.slot-remove:hover{color:var(--danger)}
+.slot-num{font-size:11px;color:var(--muted);margin-right:8px;font-weight:600}
 
 /* ─── SLIDERS ─── */
 .slider-group{margin-bottom:16px}
@@ -125,7 +199,7 @@ select:focus,input:focus{outline:2px solid var(--primary);border-color:transpare
 .slider-label span:first-child{color:var(--muted)}
 .slider-val{font-weight:600;color:var(--primary)}
 input[type=range]{width:100%;accent-color:var(--primary)}
-.param-result{border-radius:12px;padding:14px;font-size:13px;margin-top:4px;line-height:1.6}
+.param-result{border-radius:12px;padding:14px;font-size:13px;margin-top:4px;line-height:1.8}
 .param-result.safe{background:rgba(31,219,138,0.1);border:1px solid rgba(31,219,138,0.3);color:var(--ok)}
 .param-result.unsafe{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:var(--danger)}
 
@@ -150,7 +224,6 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 .status-badge{border-radius:6px;padding:2px 8px;font-size:11px;font-weight:500;display:inline-block}
 .status-safe{background:rgba(31,219,138,0.15);color:var(--ok)}
 .status-unsafe{background:rgba(255,107,107,0.15);color:var(--danger)}
-.status-warn{background:rgba(255,190,77,0.15);color:var(--warn)}
 
 /* ─── HINT ─── */
 .hint-toast{position:fixed;bottom:24px;right:24px;background:var(--card2);border:1px solid var(--primary);border-radius:14px;padding:14px 18px;font-size:14px;max-width:300px;z-index:200;display:none;animation:slideUp .3s ease}
@@ -158,10 +231,18 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 @keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
 .hint-close{float:right;cursor:pointer;color:var(--muted);margin-left:10px}
 
-/* ─── RATIONALE SECTION ─── */
+/* ─── RATIONALE ─── */
 .rationale-box{background:linear-gradient(135deg,rgba(0,198,255,0.05),rgba(124,106,247,0.05));border:1px solid rgba(0,198,255,0.15);border-radius:14px;padding:18px;margin-bottom:14px}
 .rationale-box h4{font-size:13px;color:var(--primary);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .rationale-box p{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ─── SAVING OVERLAY (Level 4 submit) ─── */
+.save-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.85);display:none;align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(4px)}
+.save-overlay.show{display:flex}
+.save-box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:36px 40px;text-align:center;min-width:260px}
+.save-box h3{font-family:var(--font-head);font-size:20px;margin-bottom:8px}
+.save-box p{font-size:14px;color:var(--muted);margin-bottom:20px}
+.save-spinner{width:48px;height:48px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px}
 
 /* ─── UTIL ─── */
 .hidden{display:none!important}
@@ -173,16 +254,26 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 </head>
 <body>
 
+<!-- SAVING OVERLAY (shown during async Level 4 submit) -->
+<div class="save-overlay" id="saveOverlay">
+  <div class="save-box">
+    <div class="save-spinner"></div>
+    <h3 id="saveTitle">Saving your score…</h3>
+    <p id="saveMsg">Uploading to leaderboard</p>
+  </div>
+</div>
+
 <!-- TOPBAR -->
 <header class="topbar">
   <div class="brand">
     <div class="logo-icon">💧</div>
     <div>
-      <h1 id="brandTitle">HydroLab</h1>
+      <h1>HydroLab</h1>
       <p id="tagline">Clean Water Quest</p>
     </div>
   </div>
   <div class="topbar-right">
+    <span id="dbPill" class="db-pill local">● local</span>
     <div id="playerChip" class="player-chip hidden"><span class="dot"></span><span id="playerName">–</span></div>
     <select id="langSelect">
       <option value="en">English</option>
@@ -202,14 +293,12 @@ input[type=range]{width:100%;accent-color:var(--primary)}
       <div class="hero-badge" id="heroBadge">🌊 Interactive Water Science Platform</div>
       <h1 class="hero-title" id="heroTitle">HydroLab</h1>
       <p class="hero-sub" id="heroSub">Explore water quality through gamified experiments. Understand pH, turbidity, heavy metals, and regional contamination threats across India.</p>
-
-      <div class="outcomes-grid" id="outcomesGrid">
+      <div class="outcomes-grid">
         <div class="outcome-card"><div class="outcome-icon">🔬</div><div><h4 id="oc1h">Analyse Parameters</h4><p id="oc1p">Interpret pH, turbidity, temperature, and heavy metal concentrations in real-world contexts.</p></div></div>
         <div class="outcome-card"><div class="outcome-icon">🗺️</div><div><h4 id="oc2h">Regional Awareness</h4><p id="oc2p">Understand geographic contamination patterns in Punjab, Himachal Pradesh, and Chhattisgarh.</p></div></div>
         <div class="outcome-card"><div class="outcome-icon">⚗️</div><div><h4 id="oc3h">Treatment Sequences</h4><p id="oc3p">Apply coagulation, sedimentation, and filtration steps in correct order to purify water.</p></div></div>
         <div class="outcome-card"><div class="outcome-icon">⚖️</div><div><h4 id="oc4h">Safety Evaluation</h4><p id="oc4p">Judge safe vs unsafe water parameters and understand the leverage of each intervention.</p></div></div>
       </div>
-
       <div class="name-form">
         <label id="nameLabel">Your name (required)</label>
         <input id="nameInput" type="text" placeholder="Enter your name"/>
@@ -227,11 +316,11 @@ input[type=range]{width:100%;accent-color:var(--primary)}
   <div class="container">
     <div class="home-header">
       <h2 class="section-title" id="homeTitle">Choose your Mission</h2>
-      <p class="section-sub" id="homeSub">Three progressive levels from concept to real-world application</p>
+      <p class="section-sub" id="homeSub">Four progressive levels from concept to real-world application</p>
     </div>
     <div class="levels-grid" id="levelsGrid"></div>
     <div class="home-actions">
-      <button class="btn" onclick="showScreen('leaderboardScreen');renderLeaderboard()" id="lbBtn">🏆 Leaderboard</button>
+      <button class="btn" onclick="showScreen('leaderboardScreen');loadAndRenderLeaderboard()" id="lbBtn">🏆 Leaderboard</button>
     </div>
   </div>
 </section>
@@ -246,7 +335,7 @@ input[type=range]{width:100%;accent-color:var(--primary)}
       </div>
       <table class="lb-table">
         <thead><tr><th>#</th><th id="lbColName">Name</th><th id="lbColScore">Score</th><th id="lbColTasks">Tasks</th></tr></thead>
-        <tbody id="lbBody"></tbody>
+        <tbody id="lbBody"><tr><td colspan="4" class="lb-loading">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -255,7 +344,6 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 <!-- ══════════════════════════ GAME ══════════════════════════ -->
 <section id="gameScreen" class="screen">
   <div class="container">
-    <!-- HUD -->
     <div class="hud">
       <div class="hud-left">
         <div class="hud-title" id="hudTitle"></div>
@@ -266,21 +354,25 @@ input[type=range]{width:100%;accent-color:var(--primary)}
       <div class="hud-btns">
         <button class="btn" onclick="showHint()" id="hintBtn">💡 Hint</button>
         <button class="btn" onclick="exitToHome()" id="exitBtn">Exit</button>
-        <button class="btn-primary" onclick="nextLevel()" id="nextBtn">Next →</button>
+        <button class="btn-primary" style="width:auto" onclick="nextLevel()" id="nextBtn">Next →</button>
       </div>
     </div>
 
-    <!-- 3-COLUMN GAME GRID -->
     <div class="game-grid">
       <!-- LEFT: Concept + Video + Goals -->
       <div class="panel">
         <h3 id="leftHeading"></h3>
         <p class="sub" id="leftSub"></p>
-        <div class="rationale-box" id="rationaleBox">
+        <div class="rationale-box">
           <h4 id="rationaleTitle">Why this matters</h4>
           <p id="rationaleText"></p>
         </div>
-        <div class="video-wrap"><iframe id="conceptVideo" allowfullscreen loading="lazy"></iframe></div>
+        <!-- FIX 3: Responsive video embed (padding-bottom trick) -->
+        <div class="video-wrap">
+          <iframe id="conceptVideo" allowfullscreen loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+          </iframe>
+        </div>
         <div class="goals-section">
           <h4 id="goalsHeading">Learning Goals</h4>
           <ul id="goalsList"></ul>
@@ -293,23 +385,24 @@ input[type=range]{width:100%;accent-color:var(--primary)}
       <div class="panel">
         <h3 id="centerHeading"></h3>
         <p class="sub" id="centerSub"></p>
-        <div id="materialList"></div>
+        <!-- FIX 4: Free drag container — items can be dragged multiple times -->
+        <div id="materialList" class="drag-container"></div>
 
         <!-- Level 3 sliders -->
         <div id="level3Controls" class="hidden">
           <div class="slider-group">
-            <div class="slider-label"><span id="phLbl">pH</span><span class="slider-val" id="phVal">7.0</span></div>
+            <div class="slider-label"><span>pH</span><span class="slider-val" id="phVal">7.0</span></div>
             <input type="range" id="phSlider" min="0" max="14" step="0.1" value="7">
           </div>
           <div class="slider-group">
-            <div class="slider-label"><span id="turbLbl">Turbidity (NTU)</span><span class="slider-val" id="turbVal">45</span></div>
+            <div class="slider-label"><span>Turbidity (NTU)</span><span class="slider-val" id="turbVal">45</span></div>
             <input type="range" id="turbSlider" min="0" max="200" value="45">
           </div>
           <div class="slider-group">
-            <div class="slider-label"><span id="tempLbl">Temperature (°C)</span><span class="slider-val" id="tempVal">25</span></div>
+            <div class="slider-label"><span>Temperature (°C)</span><span class="slider-val" id="tempVal">25</span></div>
             <input type="range" id="tempSlider" min="0" max="50" value="25">
           </div>
-          <button class="btn-primary mt8" onclick="submitLevel3()" id="submitL3Btn">Validate Parameters</button>
+          <button class="btn-primary mt8" onclick="submitLevel3()" id="submitL3Btn" style="width:100%">Validate Parameters</button>
           <div id="l3Result" class="hidden mt8"></div>
         </div>
 
@@ -331,7 +424,8 @@ input[type=range]{width:100%;accent-color:var(--primary)}
             <div class="slider-label"><span>Nitrate (mg/L)</span><span class="slider-val" id="no3Val">20</span></div>
             <input type="range" id="no3Slider" min="0" max="100" value="20">
           </div>
-          <button class="btn-primary mt8" onclick="submitLevel4()" id="submitL4Btn">Assess Contamination</button>
+          <!-- FIX 2: Async submit with loading state → auto-redirect to leaderboard -->
+          <button class="btn-primary mt8" onclick="submitLevel4()" id="submitL4Btn" style="width:100%">Assess Contamination</button>
           <div id="l4Result" class="hidden mt8"></div>
         </div>
       </div>
@@ -340,15 +434,13 @@ input[type=range]{width:100%;accent-color:var(--primary)}
       <div class="panel">
         <h3 id="rightHeading"></h3>
         <p class="sub" id="rightSub"></p>
+        <!-- FIX 4: Slots support both drop-in AND remove (×) so items can be rearranged -->
         <div id="slotsContainer" class="slots-grid"></div>
         <div id="placedCount" class="mt8" style="font-size:13px;color:var(--muted)"></div>
-
-        <!-- Pollutant table for level 4 -->
         <div id="pollutantPanel" class="hidden">
           <p style="font-size:13px;color:var(--muted);margin-bottom:8px" id="pollutantIntro">Regional heavy metal concentrations vs WHO/BIS limits:</p>
           <table class="pollutant-table" id="pollutantTable"></table>
         </div>
-
         <div class="feedback-banner" id="feedbackBanner"></div>
         <div id="quizArea" class="hidden"></div>
       </div>
@@ -357,7 +449,6 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 </section>
 </main>
 
-<!-- HINT TOAST -->
 <div class="hint-toast" id="hintToast">
   <span class="hint-close" onclick="document.getElementById('hintToast').classList.remove('show')">✕</span>
   <span id="hintText"></span>
@@ -365,127 +456,94 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
+   DATABASE LAYER
+   Tries Firebase Firestore first; falls back to localStorage.
+   All reads/writes go through this layer so the rest of the app
+   is database-agnostic.
+═══════════════════════════════════════════════════════════════ */
+const DB = {
+  // Is Firebase available?
+  _live: !!db,
+
+  /** Save or update a user's score entry. Returns a promise. */
+  async upsertScore(name, score, tasks) {
+    if (this._live) {
+      try {
+        await db.collection('leaderboard').doc(name).set(
+          { name, score, tasks, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+        return;
+      } catch (e) {
+        console.warn('[DB] Firestore write failed, falling back:', e.message);
+      }
+    }
+    // localStorage fallback
+    const data = this._localRead();
+    const ex = data.find(r => r.name === name);
+    if (ex) { ex.score = Math.max(ex.score, score); ex.tasks = Math.max(ex.tasks, tasks); }
+    else data.push({ name, score, tasks });
+    this._localWrite(data);
+  },
+
+  /** Fetch leaderboard rows sorted by score desc. Returns a promise → array. */
+  async fetchLeaderboard() {
+    if (this._live) {
+      try {
+        const snap = await db.collection('leaderboard')
+          .orderBy('score', 'desc').limit(50).get();
+        return snap.docs.map(d => d.data());
+      } catch (e) {
+        console.warn('[DB] Firestore read failed, falling back:', e.message);
+      }
+    }
+    return this._localRead().sort((a,b) => b.score - a.score);
+  },
+
+  /** Subscribe to real-time leaderboard updates (Firestore only). Returns unsubscribe fn. */
+  subscribeLeaderboard(callback) {
+    if (this._live) {
+      return db.collection('leaderboard')
+        .orderBy('score', 'desc').limit(50)
+        .onSnapshot(snap => callback(snap.docs.map(d => d.data())),
+                    e => console.warn('[DB] Snapshot error:', e));
+    }
+    // No-op for localStorage; caller should poll or re-render manually
+    callback(this._localRead().sort((a,b) => b.score - a.score));
+    return () => {};
+  },
+
+  _localRead() { return JSON.parse(localStorage.getItem('hydro_leaderboard') || '[]'); },
+  _localWrite(data) { localStorage.setItem('hydro_leaderboard', JSON.stringify(data)); },
+};
+
+// Show DB status pill
+document.getElementById('dbPill').textContent = DB._live ? '● live' : '● local';
+document.getElementById('dbPill').className = 'db-pill ' + (DB._live ? 'live' : 'local');
+
+let lbUnsubscribe = null; // holds Firestore listener cleanup fn
+
+/* ═══════════════════════════════════════════════════════════════
    i18n DICTIONARY
 ═══════════════════════════════════════════════════════════════ */
 const i18n={
-  en:{
-    tagline:"Clean Water Quest",heroBadge:"🌊 Interactive Water Science Platform",
-    heroTitle:"HydroLab",heroSub:"Explore water quality through gamified experiments. Understand pH, turbidity, heavy metals, and regional contamination threats across India.",
-    oc1h:"Analyse Parameters",oc1p:"Interpret pH, turbidity, temperature, and heavy metal concentrations in real-world contexts.",
-    oc2h:"Regional Awareness",oc2p:"Understand geographic contamination patterns in Punjab, Himachal Pradesh, and Chhattisgarh.",
-    oc3h:"Treatment Sequences",oc3p:"Apply coagulation, sedimentation, and filtration steps in correct order to purify water.",
-    oc4h:"Safety Evaluation",oc4p:"Judge safe vs unsafe water parameters and understand the leverage of each intervention.",
-    nameLabel:"Your name (required)",savedLabel:"Or choose saved name",enterBtn:"Enter Dashboard →",nameRequired:"Name is required.",
-    homeTitle:"Choose your Mission",homeSub:"Three progressive levels from concept to real-world application",
-    lbBtn:"🏆 Leaderboard",lbTitle:"Leaderboard",lbSub:"Top explorers ranked by score",lbBack:"← Back",
-    lbColName:"Name",lbColScore:"Score",lbColTasks:"Tasks",
-    hintBtn:"💡 Hint",exitBtn:"Exit",nextBtn:"Next →",
-    goalsHeading:"Learning Goals",outcomesHeading:"Expected Outcomes",rationaleTitle:"Why this matters",
-    validateBtn:"Validate Parameters",assessBtn:"Assess Contamination",
-    safe:"Safe ✓",unsafe:"Unsafe ✗",outOfRange:"Out of range ⚠",
-    correct:"Correct!",wrong:"Not correct – try again",tryAgainQuiz:"Try again",
-    trueLabel:"True",falseLabel:"False",
-    dropHere:"Drop here",placed:"Placed",completed:"✓ Completed! Quiz unlocked.",tryAgain:"Not correct – try again.",
-    pollutantIntro:"Regional heavy metal concentrations vs WHO/BIS limits:",
-    selectSaved:"— select saved —",
-    levelLabel:"Level",startBtn:"Start Level",
-  },
-  hi:{
-    tagline:"स्वच्छ जल अभियान",heroBadge:"🌊 इंटरैक्टिव जल विज्ञान प्लेटफ़ॉर्म",
-    heroTitle:"हाइड्रोलैब",heroSub:"गेमिफाइड प्रयोगों से जल गुणवत्ता सीखें। pH, टर्बिडिटी, भारी धातुएं और क्षेत्रीय प्रदूषण को समझें।",
-    oc1h:"मापदंड विश्लेषण",oc1p:"pH, टर्बिडिटी, तापमान और भारी धातु सांद्रता को असली संदर्भ में समझें।",
-    oc2h:"क्षेत्रीय जागरूकता",oc2p:"पंजाब, हिमाचल प्रदेश और छत्तीसगढ़ में भौगोलिक प्रदूषण पैटर्न समझें।",
-    oc3h:"शुद्धिकरण क्रम",oc3p:"पानी साफ करने के लिए जमाव, अवसादन और छनाई सही क्रम में लागू करें।",
-    oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित और असुरक्षित जल मापदंडों का आकलन करें और हस्तक्षेप का महत्त्व समझें।",
-    nameLabel:"आपका नाम (आवश्यक)",savedLabel:"या सहेजा नाम चुनें",enterBtn:"डैशबोर्ड में जाएँ →",nameRequired:"नाम आवश्यक है।",
-    homeTitle:"अपना मिशन चुनें",homeSub:"अवधारणा से अनुप्रयोग तक तीन प्रगतिशील स्तर",
-    lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार पर शीर्ष शिक्षार्थी",lbBack:"← वापस",
-    lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"कार्य",
-    hintBtn:"💡 संकेत",exitBtn:"बाहर",nextBtn:"अगला →",
-    goalsHeading:"सीखने के लक्ष्य",outcomesHeading:"अपेक्षित परिणाम",rationaleTitle:"यह क्यों मायने रखता है",
-    validateBtn:"मापदंड सत्यापित करें",assessBtn:"प्रदूषण आकलन",
-    safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा से बाहर ⚠",
-    correct:"सही!",wrong:"गलत – फिर प्रयास करें",tryAgainQuiz:"फिर प्रयास करें",
-    trueLabel:"सत्य",falseLabel:"असत्य",
-    dropHere:"यहाँ रखें",placed:"रखा गया",completed:"✓ पूर्ण! प्रश्नोत्तरी खुली।",tryAgain:"गलत – फिर प्रयास करें।",
-    pollutantIntro:"WHO/BIS सीमाओं बनाम क्षेत्रीय भारी धातु सांद्रता:",
-    selectSaved:"— सहेजा नाम —",levelLabel:"स्तर",startBtn:"स्तर शुरू करें",
-  },
-  pa:{
-    tagline:"ਸਾਫ਼ ਪਾਣੀ ਖੋਜ",heroBadge:"🌊 ਇੰਟਰੈਕਟਿਵ ਪਾਣੀ ਵਿਗਿਆਨ ਪਲੇਟਫਾਰਮ",
-    heroTitle:"ਹਾਈਡ੍ਰੋਲੈਬ",heroSub:"ਖੇਡ-ਆਧਾਰਿਤ ਪ੍ਰਯੋਗਾਂ ਰਾਹੀਂ ਪਾਣੀ ਦੀ ਗੁਣਵੱਤਾ ਸਿੱਖੋ। pH, ਗੰਦਲਾਪਣ, ਭਾਰੀ ਧਾਤਾਂ ਅਤੇ ਖੇਤਰੀ ਪ੍ਰਦੂਸ਼ਣ ਨੂੰ ਸਮਝੋ।",
-    oc1h:"ਮਾਪਦੰਡ ਵਿਸ਼ਲੇਸ਼ਣ",oc1p:"pH, ਗੰਦਲਾਪਣ, ਤਾਪਮਾਨ ਅਤੇ ਭਾਰੀ ਧਾਤੂ ਸੰਘਣਤਾ ਨੂੰ ਅਸਲੀ ਸੰਦਰਭ ਵਿੱਚ ਸਮਝੋ।",
-    oc2h:"ਖੇਤਰੀ ਜਾਗਰੂਕਤਾ",oc2p:"ਪੰਜਾਬ, ਹਿਮਾਚਲ ਪ੍ਰਦੇਸ਼ ਅਤੇ ਛੱਤੀਸਗੜ੍ਹ ਵਿੱਚ ਭੂਗੋਲਿਕ ਪ੍ਰਦੂਸ਼ਣ ਨੂੰ ਸਮਝੋ।",
-    oc3h:"ਸ਼ੁੱਧੀਕਰਨ ਕ੍ਰਮ",oc3p:"ਪਾਣੀ ਸਾਫ਼ ਕਰਨ ਲਈ ਜਮਾਅ, ਤਲਛਟ ਅਤੇ ਫਿਲਟਰੇਸ਼ਨ ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਲਗਾਓ।",
-    oc4h:"ਸੁਰੱਖਿਆ ਮੁਲਾਂਕਣ",oc4p:"ਸੁਰੱਖਿਅਤ ਬਨਾਮ ਅਸੁਰੱਖਿਅਤ ਪਾਣੀ ਮਾਪਦੰਡਾਂ ਦਾ ਮੁਲਾਂਕਣ ਕਰੋ।",
-    nameLabel:"ਤੁਹਾਡਾ ਨਾਮ (ਲਾਜ਼ਮੀ)",savedLabel:"ਜਾਂ ਸੁਰੱਖਿਅਤ ਨਾਮ ਚੁਣੋ",enterBtn:"ਡੈਸ਼ਬੋਰਡ ਵਿੱਚ ਜਾਓ →",nameRequired:"ਨਾਮ ਲਾਜ਼ਮੀ ਹੈ।",
-    homeTitle:"ਆਪਣਾ ਮਿਸ਼ਨ ਚੁਣੋ",homeSub:"ਸੰਕਲਪ ਤੋਂ ਅਸਲ ਵਰਤੋਂ ਤੱਕ ਤਿੰਨ ਪੱਧਰੀ ਪ੍ਰਗਤੀਸ਼ੀਲ ਪੱਧਰ",
-    lbBtn:"🏆 ਲੀਡਰਬੋਰਡ",lbTitle:"ਲੀਡਰਬੋਰਡ",lbSub:"ਸਕੋਰ ਦੇ ਆਧਾਰ 'ਤੇ ਚੋਟੀ ਦੇ ਖੋਜੀ",lbBack:"← ਵਾਪਸ",
-    lbColName:"ਨਾਮ",lbColScore:"ਸਕੋਰ",lbColTasks:"ਕੰਮ",
-    hintBtn:"💡 ਸੰਕੇਤ",exitBtn:"ਬਾਹਰ",nextBtn:"ਅਗਲਾ →",
-    goalsHeading:"ਸਿੱਖਣ ਦੇ ਟੀਚੇ",outcomesHeading:"ਅਨੁਮਾਨਿਤ ਨਤੀਜੇ",rationaleTitle:"ਇਹ ਕਿਉਂ ਮਹੱਤਵਪੂਰਨ ਹੈ",
-    validateBtn:"ਮਾਪਦੰਡ ਸਿੱਧ ਕਰੋ",assessBtn:"ਪ੍ਰਦੂਸ਼ਣ ਮੁਲਾਂਕਣ",
-    safe:"ਸੁਰੱਖਿਅਤ ✓",unsafe:"ਅਸੁਰੱਖਿਅਤ ✗",outOfRange:"ਸੀਮਾ ਤੋਂ ਬਾਹਰ ⚠",
-    correct:"ਸਹੀ!",wrong:"ਗਲਤ – ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",tryAgainQuiz:"ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
-    trueLabel:"ਸੱਚ",falseLabel:"ਝੂਠ",
-    dropHere:"ਇੱਥੇ ਰੱਖੋ",placed:"ਰੱਖਿਆ",completed:"✓ ਪੂਰਾ! ਕੁਇਜ਼ ਖੁੱਲੀ।",tryAgain:"ਗਲਤ – ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
-    pollutantIntro:"WHO/BIS ਸੀਮਾਵਾਂ ਬਨਾਮ ਖੇਤਰੀ ਭਾਰੀ ਧਾਤੂ ਸੰਘਣਤਾ:",
-    selectSaved:"— ਸੁਰੱਖਿਅਤ ਨਾਮ —",levelLabel:"ਪੱਧਰ",startBtn:"ਪੱਧਰ ਸ਼ੁਰੂ ਕਰੋ",
-  },
-  him:{
-    tagline:"शुद्ध पाणी खोज",heroBadge:"🌊 पाणी विज्ञान मंच",
-    heroTitle:"हाइड्रोलैब",heroSub:"खेल-आधारित प्रयोगों से पाणी की गुणवत्ता सीखो। pH, गदलापण, भारी धातु और क्षेत्रीय प्रदूषण समझो।",
-    oc1h:"मापदंड विश्लेषण",oc1p:"pH, गदलापण, तापमान और भारी धातु को असली संदर्भ में समझो।",
-    oc2h:"क्षेत्रीय जागरूकता",oc2p:"हिमाचल प्रदेश, पंजाब और छत्तीसगढ़ में प्रदूषण समझो।",
-    oc3h:"शुद्धीकरण क्रम",oc3p:"पाणी शुद्ध करने के चरण सही क्रम में लगाओ।",
-    oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित और असुरक्षित मापदंडों का आकलन करो।",
-    nameLabel:"तुम्हारा नाम (जरूरी)",savedLabel:"या सहेजा नाम चुनो",enterBtn:"डैशबोर्ड में जाओ →",nameRequired:"नाम जरूरी है।",
-    homeTitle:"अपना मिशन चुनो",homeSub:"तीन स्तरीय प्रगतिशील खोज",
-    lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार पर शीर्ष खोजी",lbBack:"← वापस",
-    lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"काम",
-    hintBtn:"💡 इशारा",exitBtn:"बाहर",nextBtn:"अगला →",
-    goalsHeading:"सीखने के लक्ष्य",outcomesHeading:"अपेक्षित नतीजे",rationaleTitle:"यह क्यों जरूरी है",
-    validateBtn:"मापदंड जाँचो",assessBtn:"प्रदूषण जाँचो",
-    safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा से बाहर ⚠",
-    correct:"सही!",wrong:"गलत – फिर कोशिश करो",tryAgainQuiz:"फिर कोशिश करो",
-    trueLabel:"सही",falseLabel:"गलत",
-    dropHere:"यहाँ रखो",placed:"रखा",completed:"✓ पूरा! प्रश्नोत्तरी खुली।",tryAgain:"गलत – फिर कोशिश करो।",
-    pollutantIntro:"WHO/BIS सीमाओं बनाम क्षेत्रीय भारी धातु सांद्रता:",
-    selectSaved:"— सहेजा नाम —",levelLabel:"स्तर",startBtn:"स्तर शुरू करो",
-  },
-  cg:{
-    tagline:"साफ पानी खोज",heroBadge:"🌊 पानी विज्ञान मंच",
-    heroTitle:"हाइड्रोलैब",heroSub:"खेल-आधारित प्रयोग ले पानी के गुण सीखव। pH, मटमैलापन, भारी धातु अउ क्षेत्रीय प्रदूषण समझव।",
-    oc1h:"मापदंड विश्लेषण",oc1p:"pH, मटमैलापन, तापमान अउ भारी धातु के सांद्रता असली संदर्भ में समझव।",
-    oc2h:"क्षेत्रीय जागरूकता",oc2p:"छत्तीसगढ़, पंजाब अउ हिमाचल प्रदेश में भौगोलिक प्रदूषण समझव।",
-    oc3h:"शुद्धीकरण क्रम",oc3p:"पानी साफ करे बर जमाव, तलछट अउ छनाई सही क्रम में करव।",
-    oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित अउ असुरक्षित पानी मापदंड के आकलन करव।",
-    nameLabel:"तुम्हार नाम (जरूरी)",savedLabel:"या सहेजे नाम चुनव",enterBtn:"डैशबोर्ड में जाव →",nameRequired:"नाम जरूरी हे।",
-    homeTitle:"अपन मिशन चुनव",homeSub:"अवधारणा ले अनुप्रयोग तक तीन स्तरीय खोज",
-    lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार म शीर्ष खोजी",lbBack:"← वापस",
-    lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"काम",
-    hintBtn:"💡 इशारा",exitBtn:"बाहर",nextBtn:"अगला →",
-    goalsHeading:"सीखे के लक्ष्य",outcomesHeading:"अपेक्षित नतीजा",rationaleTitle:"एहा काबर जरूरी हे",
-    validateBtn:"मापदंड जाँचव",assessBtn:"प्रदूषण जाँचव",
-    safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा ले बाहर ⚠",
-    correct:"सही!",wrong:"गलत – फेर कोशिश करव",tryAgainQuiz:"फेर कोशिश करव",
-    trueLabel:"सही",falseLabel:"गलत",
-    dropHere:"इहाँ रखव",placed:"रखे",completed:"✓ पूरा! प्रश्नोत्तरी खुलिस।",tryAgain:"गलत – फेर कोशिश करव।",
-    pollutantIntro:"WHO/BIS सीमा बनाम क्षेत्रीय भारी धातु सांद्रता:",
-    selectSaved:"— सहेजे नाम —",levelLabel:"स्तर",startBtn:"स्तर शुरू करव",
-  }
+  en:{tagline:"Clean Water Quest",heroBadge:"🌊 Interactive Water Science Platform",heroTitle:"HydroLab",heroSub:"Explore water quality through gamified experiments. Understand pH, turbidity, heavy metals, and regional contamination threats across India.",oc1h:"Analyse Parameters",oc1p:"Interpret pH, turbidity, temperature, and heavy metal concentrations in real-world contexts.",oc2h:"Regional Awareness",oc2p:"Understand geographic contamination patterns in Punjab, Himachal Pradesh, and Chhattisgarh.",oc3h:"Treatment Sequences",oc3p:"Apply coagulation, sedimentation, and filtration steps in correct order to purify water.",oc4h:"Safety Evaluation",oc4p:"Judge safe vs unsafe water parameters and understand the leverage of each intervention.",nameLabel:"Your name (required)",savedLabel:"Or choose saved name",enterBtn:"Enter Dashboard →",nameRequired:"Name is required.",homeTitle:"Choose your Mission",homeSub:"Four progressive levels from concept to real-world application",lbBtn:"🏆 Leaderboard",lbTitle:"Leaderboard",lbSub:"Top explorers ranked by score",lbBack:"← Back",lbColName:"Name",lbColScore:"Score",lbColTasks:"Tasks",hintBtn:"💡 Hint",exitBtn:"Exit",nextBtn:"Next →",goalsHeading:"Learning Goals",outcomesHeading:"Expected Outcomes",rationaleTitle:"Why this matters",safe:"Safe ✓",unsafe:"Unsafe ✗",outOfRange:"Out of range ⚠",tryAgainQuiz:"Try again",trueLabel:"True",falseLabel:"False",dropHere:"Drop here",placed:"Placed",completed:"✓ Completed! Quiz unlocked.",tryAgain:"Not correct – try again.",pollutantIntro:"Regional heavy metal concentrations vs WHO/BIS limits:",selectSaved:"— select saved —",levelLabel:"Level"},
+  hi:{tagline:"स्वच्छ जल अभियान",heroBadge:"🌊 इंटरैक्टिव जल विज्ञान प्लेटफ़ॉर्म",heroTitle:"हाइड्रोलैब",heroSub:"गेमिफाइड प्रयोगों से जल गुणवत्ता सीखें।",oc1h:"मापदंड विश्लेषण",oc1p:"pH, टर्बिडिटी, तापमान और भारी धातु सांद्रता को असली संदर्भ में समझें।",oc2h:"क्षेत्रीय जागरूकता",oc2p:"पंजाब, हिमाचल प्रदेश और छत्तीसगढ़ में भौगोलिक प्रदूषण पैटर्न समझें।",oc3h:"शुद्धिकरण क्रम",oc3p:"पानी साफ करने के लिए जमाव, अवसादन और छनाई सही क्रम में लागू करें।",oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित और असुरक्षित जल मापदंडों का आकलन करें।",nameLabel:"आपका नाम (आवश्यक)",savedLabel:"या सहेजा नाम चुनें",enterBtn:"डैशबोर्ड में जाएँ →",nameRequired:"नाम आवश्यक है।",homeTitle:"अपना मिशन चुनें",homeSub:"अवधारणा से अनुप्रयोग तक चार प्रगतिशील स्तर",lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार पर शीर्ष शिक्षार्थी",lbBack:"← वापस",lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"कार्य",hintBtn:"💡 संकेत",exitBtn:"बाहर",nextBtn:"अगला →",goalsHeading:"सीखने के लक्ष्य",outcomesHeading:"अपेक्षित परिणाम",rationaleTitle:"यह क्यों मायने रखता है",safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा से बाहर ⚠",tryAgainQuiz:"फिर प्रयास करें",trueLabel:"सत्य",falseLabel:"असत्य",dropHere:"यहाँ रखें",placed:"रखा गया",completed:"✓ पूर्ण! प्रश्नोत्तरी खुली।",tryAgain:"गलत – फिर प्रयास करें।",pollutantIntro:"WHO/BIS सीमाओं बनाम क्षेत्रीय भारी धातु सांद्रता:",selectSaved:"— सहेजा नाम —",levelLabel:"स्तर"},
+  pa:{tagline:"ਸਾਫ਼ ਪਾਣੀ ਖੋਜ",heroBadge:"🌊 ਇੰਟਰੈਕਟਿਵ ਪਾਣੀ ਵਿਗਿਆਨ ਪਲੇਟਫਾਰਮ",heroTitle:"ਹਾਈਡ੍ਰੋਲੈਬ",heroSub:"ਖੇਡ-ਆਧਾਰਿਤ ਪ੍ਰਯੋਗਾਂ ਰਾਹੀਂ ਪਾਣੀ ਦੀ ਗੁਣਵੱਤਾ ਸਿੱਖੋ।",oc1h:"ਮਾਪਦੰਡ ਵਿਸ਼ਲੇਸ਼ਣ",oc1p:"pH, ਗੰਦਲਾਪਣ, ਤਾਪਮਾਨ ਅਤੇ ਭਾਰੀ ਧਾਤੂ ਸੰਘਣਤਾ ਸਮਝੋ।",oc2h:"ਖੇਤਰੀ ਜਾਗਰੂਕਤਾ",oc2p:"ਪੰਜਾਬ, ਹਿਮਾਚਲ ਪ੍ਰਦੇਸ਼ ਅਤੇ ਛੱਤੀਸਗੜ੍ਹ ਵਿੱਚ ਪ੍ਰਦੂਸ਼ਣ ਸਮਝੋ।",oc3h:"ਸ਼ੁੱਧੀਕਰਨ ਕ੍ਰਮ",oc3p:"ਪਾਣੀ ਸਾਫ਼ ਕਰਨ ਲਈ ਜਮਾਅ, ਤਲਛਟ ਅਤੇ ਫਿਲਟਰੇਸ਼ਨ ਲਗਾਓ।",oc4h:"ਸੁਰੱਖਿਆ ਮੁਲਾਂਕਣ",oc4p:"ਸੁਰੱਖਿਅਤ ਬਨਾਮ ਅਸੁਰੱਖਿਅਤ ਪਾਣੀ ਮਾਪਦੰਡਾਂ ਦਾ ਮੁਲਾਂਕਣ ਕਰੋ।",nameLabel:"ਤੁਹਾਡਾ ਨਾਮ (ਲਾਜ਼ਮੀ)",savedLabel:"ਜਾਂ ਸੁਰੱਖਿਅਤ ਨਾਮ ਚੁਣੋ",enterBtn:"ਡੈਸ਼ਬੋਰਡ ਵਿੱਚ ਜਾਓ →",nameRequired:"ਨਾਮ ਲਾਜ਼ਮੀ ਹੈ।",homeTitle:"ਆਪਣਾ ਮਿਸ਼ਨ ਚੁਣੋ",homeSub:"ਚਾਰ ਪੱਧਰੀ ਪ੍ਰਗਤੀਸ਼ੀਲ ਖੋਜ",lbBtn:"🏆 ਲੀਡਰਬੋਰਡ",lbTitle:"ਲੀਡਰਬੋਰਡ",lbSub:"ਸਕੋਰ ਦੇ ਆਧਾਰ ਤੇ ਚੋਟੀ ਦੇ ਖੋਜੀ",lbBack:"← ਵਾਪਸ",lbColName:"ਨਾਮ",lbColScore:"ਸਕੋਰ",lbColTasks:"ਕੰਮ",hintBtn:"💡 ਸੰਕੇਤ",exitBtn:"ਬਾਹਰ",nextBtn:"ਅਗਲਾ →",goalsHeading:"ਸਿੱਖਣ ਦੇ ਟੀਚੇ",outcomesHeading:"ਅਨੁਮਾਨਿਤ ਨਤੀਜੇ",rationaleTitle:"ਇਹ ਕਿਉਂ ਮਹੱਤਵਪੂਰਨ ਹੈ",safe:"ਸੁਰੱਖਿਅਤ ✓",unsafe:"ਅਸੁਰੱਖਿਅਤ ✗",outOfRange:"ਸੀਮਾ ਤੋਂ ਬਾਹਰ ⚠",tryAgainQuiz:"ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",trueLabel:"ਸੱਚ",falseLabel:"ਝੂਠ",dropHere:"ਇੱਥੇ ਰੱਖੋ",placed:"ਰੱਖਿਆ",completed:"✓ ਪੂਰਾ! ਕੁਇਜ਼ ਖੁੱਲੀ।",tryAgain:"ਗਲਤ – ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",pollutantIntro:"WHO/BIS ਸੀਮਾਵਾਂ ਬਨਾਮ ਖੇਤਰੀ ਭਾਰੀ ਧਾਤੂ ਸੰਘਣਤਾ:",selectSaved:"— ਸੁਰੱਖਿਅਤ ਨਾਮ —",levelLabel:"ਪੱਧਰ"},
+  him:{tagline:"शुद्ध पाणी खोज",heroBadge:"🌊 पाणी विज्ञान मंच",heroTitle:"हाइड्रोलैब",heroSub:"खेल-आधारित प्रयोगों से पाणी की गुणवत्ता सीखो।",oc1h:"मापदंड विश्लेषण",oc1p:"pH, गदलापण, तापमान और भारी धातु को असली संदर्भ में समझो।",oc2h:"क्षेत्रीय जागरूकता",oc2p:"हिमाचल प्रदेश, पंजाब और छत्तीसगढ़ में प्रदूषण समझो।",oc3h:"शुद्धीकरण क्रम",oc3p:"पाणी शुद्ध करने के चरण सही क्रम में लगाओ।",oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित और असुरक्षित मापदंडों का आकलन करो।",nameLabel:"तुम्हारा नाम (जरूरी)",savedLabel:"या सहेजा नाम चुनो",enterBtn:"डैशबोर्ड में जाओ →",nameRequired:"नाम जरूरी है।",homeTitle:"अपना मिशन चुनो",homeSub:"चार स्तरीय प्रगतिशील खोज",lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार पर शीर्ष खोजी",lbBack:"← वापस",lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"काम",hintBtn:"💡 इशारा",exitBtn:"बाहर",nextBtn:"अगला →",goalsHeading:"सीखने के लक्ष्य",outcomesHeading:"अपेक्षित नतीजे",rationaleTitle:"यह क्यों जरूरी है",safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा से बाहर ⚠",tryAgainQuiz:"फिर कोशिश करो",trueLabel:"सही",falseLabel:"गलत",dropHere:"यहाँ रखो",placed:"रखा",completed:"✓ पूरा! प्रश्नोत्तरी खुली।",tryAgain:"गलत – फिर कोशिश करो।",pollutantIntro:"WHO/BIS सीमाओं बनाम क्षेत्रीय भारी धातु सांद्रता:",selectSaved:"— सहेजा नाम —",levelLabel:"स्तर"},
+  cg:{tagline:"साफ पानी खोज",heroBadge:"🌊 पानी विज्ञान मंच",heroTitle:"हाइड्रोलैब",heroSub:"खेल-आधारित प्रयोग ले पानी के गुण सीखव।",oc1h:"मापदंड विश्लेषण",oc1p:"pH, मटमैलापन, तापमान अउ भारी धातु के सांद्रता असली संदर्भ में समझव।",oc2h:"क्षेत्रीय जागरूकता",oc2p:"छत्तीसगढ़, पंजाब अउ हिमाचल प्रदेश में भौगोलिक प्रदूषण समझव।",oc3h:"शुद्धीकरण क्रम",oc3p:"पानी साफ करे बर जमाव, तलछट अउ छनाई सही क्रम में करव।",oc4h:"सुरक्षा मूल्यांकन",oc4p:"सुरक्षित अउ असुरक्षित पानी मापदंड के आकलन करव।",nameLabel:"तुम्हार नाम (जरूरी)",savedLabel:"या सहेजे नाम चुनव",enterBtn:"डैशबोर्ड में जाव →",nameRequired:"नाम जरूरी हे।",homeTitle:"अपन मिशन चुनव",homeSub:"चार स्तरीय प्रगतिशील खोज",lbBtn:"🏆 लीडरबोर्ड",lbTitle:"लीडरबोर्ड",lbSub:"स्कोर के आधार म शीर्ष खोजी",lbBack:"← वापस",lbColName:"नाम",lbColScore:"स्कोर",lbColTasks:"काम",hintBtn:"💡 इशारा",exitBtn:"बाहर",nextBtn:"अगला →",goalsHeading:"सीखे के लक्ष्य",outcomesHeading:"अपेक्षित नतीजा",rationaleTitle:"एहा काबर जरूरी हे",safe:"सुरक्षित ✓",unsafe:"असुरक्षित ✗",outOfRange:"सीमा ले बाहर ⚠",tryAgainQuiz:"फेर कोशिश करव",trueLabel:"सही",falseLabel:"गलत",dropHere:"इहाँ रखव",placed:"रखे",completed:"✓ पूरा! प्रश्नोत्तरी खुलिस।",tryAgain:"गलत – फेर कोशिश करव।",pollutantIntro:"WHO/BIS सीमा बनाम क्षेत्रीय भारी धातु सांद्रता:",selectSaved:"— सहेजे नाम —",levelLabel:"स्तर"}
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   POLLUTANT DATA (WHO/BIS limits + real regional data)
+   POLLUTANT DATA
 ═══════════════════════════════════════════════════════════════ */
 const pollutantData=[
-  {name:"Arsenic (As)",unit:"μg/L",who:10,bis:10,punjab:{"avg":32,"range":"18–85"},hp:{"avg":8,"range":"2–22"},cg:{"avg":41,"range":"15–120"},health:"Skin lesions, cancer, nerve damage"},
-  {name:"Fluoride (F⁻)",unit:"mg/L",who:1.5,bis:1.0,punjab:{"avg":2.8,"range":"1.5–6.4"},hp:{"avg":1.2,"range":"0.4–2.9"},cg:{"avg":3.5,"range":"1.0–8.2"},health:"Dental/skeletal fluorosis"},
-  {name:"Lead (Pb)",unit:"μg/L",who:10,bis:10,punjab:{"avg":14,"range":"5–45"},hp:{"avg":6,"range":"1–18"},cg:{"avg":20,"range":"8–62"},health:"Neurotoxicity, especially in children"},
-  {name:"Nitrate (NO₃⁻)",unit:"mg/L",who:50,bis:45,punjab:{"avg":68,"range":"30–180"},hp:{"avg":22,"range":"5–55"},cg:{"avg":55,"range":"20–140"},health:"Blue-baby syndrome (methemoglobinemia)"},
-  {name:"Cadmium (Cd)",unit:"μg/L",who:3,bis:3,punjab:{"avg":5,"range":"1–18"},hp:{"avg":2,"range":"0.5–6"},cg:{"avg":7,"range":"2–22"},health:"Kidney damage, bone demineralization"},
-  {name:"Chromium (Cr VI)",unit:"μg/L",who:50,bis:50,punjab:{"avg":30,"range":"5–85"},hp:{"avg":10,"range":"2–30"},cg:{"avg":55,"range":"10–140"},health:"Carcinogen; lung, liver, kidney damage"},
+  {name:"Arsenic (As)",unit:"μg/L",who:10,bis:10,punjab:{avg:32,range:"18–85"},hp:{avg:8,range:"2–22"},cg:{avg:41,range:"15–120"},health:"Skin lesions, cancer, nerve damage"},
+  {name:"Fluoride (F⁻)",unit:"mg/L",who:1.5,bis:1.0,punjab:{avg:2.8,range:"1.5–6.4"},hp:{avg:1.2,range:"0.4–2.9"},cg:{avg:3.5,range:"1.0–8.2"},health:"Dental/skeletal fluorosis"},
+  {name:"Lead (Pb)",unit:"μg/L",who:10,bis:10,punjab:{avg:14,range:"5–45"},hp:{avg:6,range:"1–18"},cg:{avg:20,range:"8–62"},health:"Neurotoxicity, especially in children"},
+  {name:"Nitrate (NO₃⁻)",unit:"mg/L",who:50,bis:45,punjab:{avg:68,range:"30–180"},hp:{avg:22,range:"5–55"},cg:{avg:55,range:"20–140"},health:"Blue-baby syndrome (methemoglobinemia)"},
+  {name:"Cadmium (Cd)",unit:"μg/L",who:3,bis:3,punjab:{avg:5,range:"1–18"},hp:{avg:2,range:"0.5–6"},cg:{avg:7,range:"2–22"},health:"Kidney damage, bone demineralization"},
+  {name:"Chromium (Cr VI)",unit:"μg/L",who:50,bis:50,punjab:{avg:30,range:"5–85"},hp:{avg:10,range:"2–30"},cg:{avg:55,range:"10–140"},health:"Carcinogen; lung, liver, kidney damage"},
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -501,18 +559,18 @@ const questionBank={
   2:[
     {q:"True or False: High turbidity indicates clear water.",a:false,s:"Correct! High turbidity means murky, particle-laden water."},
     {q:"True or False: Coagulation helps bind fine particles into larger flocs.",a:true,s:"Correct! Coagulants like alum cause particles to clump."},
-    {q:"True or False: Filtration alone can remove dissolved heavy metals.",a:false,s:"Correct! You need additional treatment like ion exchange or RO for dissolved metals."},
+    {q:"True or False: Filtration alone can remove dissolved heavy metals.",a:false,s:"Correct! You need ion exchange or RO for dissolved metals."},
     {q:"True or False: 5 NTU is the WHO recommended turbidity limit for drinking water.",a:true,s:"Correct! WHO recommends <1 NTU ideally, 5 NTU as the limit."},
   ],
   3:[
     {q:"True or False: Higher temperature increases molecular kinetic energy in water.",a:true,s:"Correct! Heat causes molecules to move faster."},
-    {q:"True or False: pH 9 falls within the safe drinking range of 6.5–8.5.",a:false,s:"Correct! pH 9 is above the safe range and too basic for drinking."},
+    {q:"True or False: pH 9 falls within the safe drinking range of 6.5–8.5.",a:false,s:"Correct! pH 9 is above the safe range and too basic."},
     {q:"True or False: Water at 35°C is outside the safe temperature range for drinking.",a:true,s:"Correct! Safe drinking water should be between 10–30°C."},
     {q:"True or False: Temperature affects how quickly contaminants dissolve in water.",a:true,s:"Correct! Higher temperature generally increases solubility."},
   ],
   4:[
-    {q:"True or False: WHO permissible limit for arsenic in drinking water is 10 μg/L.",a:true,s:"Correct! Both WHO and BIS set 10 μg/L as the limit for arsenic."},
-    {q:"True or False: Punjab groundwater arsenic levels are often within safe limits.",a:false,s:"Correct! Punjab districts like Ropar and Fatehgarh Sahib show arsenic up to 85 μg/L – 8× the limit."},
+    {q:"True or False: WHO permissible limit for arsenic in drinking water is 10 μg/L.",a:true,s:"Correct! Both WHO and BIS set 10 μg/L as the arsenic limit."},
+    {q:"True or False: Punjab groundwater arsenic levels are often within safe limits.",a:false,s:"Correct! Punjab districts show arsenic up to 85 μg/L – 8× the limit."},
     {q:"True or False: Fluorosis is caused by excess fluoride in drinking water.",a:true,s:"Correct! Chhattisgarh's fluoride levels (up to 8.2 mg/L) cause severe fluorosis."},
     {q:"True or False: Nitrate contamination in Punjab is primarily from agricultural runoff.",a:true,s:"Correct! Intensive farming with nitrogen fertilisers is the main source."},
   ],
@@ -520,20 +578,22 @@ const questionBank={
 
 /* ═══════════════════════════════════════════════════════════════
    LEVEL CONFIG
+   FIX 3: All video URLs are clean /embed/{id} format — no duplication.
 ═══════════════════════════════════════════════════════════════ */
 const levels={
   1:{
     title:{en:"Level 1: pH Detective",hi:"स्तर 1: pH जासूस",pa:"ਪੱਧਰ 1: pH ਜਾਸੂਸ",him:"स्तर 1: pH जासूस",cg:"स्तर 1: pH जासूस"},
-    tags:["pH Scale","Beginner"],color:"#00c6ff",
-    desc:{en:"Classify water samples by pH and arrange them from acidic to basic.",hi:"pH के अनुसार जल नमूनों को वर्गीकृत करें और अम्ल से क्षार तक क्रमबद्ध करें।",pa:"pH ਦੇ ਆਧਾਰ 'ਤੇ ਪਾਣੀ ਦੇ ਨਮੂਨੇ ਵਰਗੀਕਰਣ ਕਰੋ।",him:"pH के आधार पर पाणी नमूने वर्गीकृत करो।",cg:"pH के आधार म पानी नमूना वर्गीकरण करव।"},
-    rationale:{en:"pH determines whether water is safe to drink. Water outside pH 6.5–8.5 can corrode pipes, leach heavy metals, damage body tissues, and kill aquatic life. A 1-unit pH change represents a 10× concentration change in acidity/alkalinity – small shifts have big impacts.",hi:"pH तय करता है कि पानी पीने योग्य है या नहीं। pH 6.5–8.5 से बाहर पानी पाइप संक्षारित करता है, भारी धातुएँ मिलाता है और शरीर को नुकसान पहुँचाता है।",pa:"pH ਦੱਸਦਾ ਹੈ ਕਿ ਪਾਣੀ ਪੀਣ ਯੋਗ ਹੈ ਜਾਂ ਨਹੀਂ। pH 6.5–8.5 ਤੋਂ ਬਾਹਰ ਪਾਣੀ ਪਾਈਪਾਂ ਨੂੰ ਨਸ਼ਟ ਕਰਦਾ ਹੈ।",him:"pH तय करदा है कि पाणी पीने योग्य है या नी।",cg:"pH तय करथे कि पानी पीए लायक हे या नी।"},
+    tags:["pH Scale","Beginner"],
+    desc:{en:"Classify water samples by pH and arrange them from acidic to basic.",hi:"pH के अनुसार जल नमूनों को वर्गीकृत करें।",pa:"pH ਦੇ ਆਧਾਰ ਤੇ ਪਾਣੀ ਦੇ ਨਮੂਨੇ ਵਰਗੀਕਰਣ ਕਰੋ।",him:"pH के आधार पर पाणी नमूने वर्गीकृत करो।",cg:"pH के आधार म पानी नमूना वर्गीकरण करव।"},
+    rationale:{en:"pH determines whether water is safe to drink. Water outside pH 6.5–8.5 corrodes pipes, leaches heavy metals, and damages body tissues. A 1-unit pH change = 10× concentration change — small shifts have big impacts.",hi:"pH तय करता है कि पानी पीने योग्य है या नहीं। pH 6.5–8.5 से बाहर पानी पाइप संक्षारित करता है।",pa:"pH ਦੱਸਦਾ ਹੈ ਕਿ ਪਾਣੀ ਪੀਣ ਯੋਗ ਹੈ ਜਾਂ ਨਹੀਂ।",him:"pH तय करदा है कि पाणी पीने योग्य है या नी।",cg:"pH तय करथे कि पानी पीए लायक हे या नी।"},
+    /* FIX 3: Clean embed URL */
     video: "https://www.youtube.com/embed/1DBZ9OKxZPk",
-    goals:{en:["Understand the pH scale from 0 to 14.","Classify samples as acidic (pH<7), neutral (pH=7), or basic (pH>7).","Recognise safe drinking water range: pH 6.5–8.5."],hi:["0 से 14 तक pH स्केल समझना।","नमूनों को अम्लीय, उदासीन या क्षारीय वर्गीकृत करना।","सुरक्षित पेयजल सीमा pH 6.5–8.5 पहचानना।"],pa:["0 ਤੋਂ 14 ਤੱਕ pH ਸਕੇਲ ਸਮਝਣਾ।","ਨਮੂਨਿਆਂ ਨੂੰ ਤੇਜ਼ਾਬੀ, ਨਿਰਪੱਖ ਜਾਂ ਖਾਰੀ ਵਜੋਂ ਵਰਗੀਕਰਣ ਕਰਨਾ।"],him:["0 से 14 तक pH स्केल समझो।","नमूनों को अम्लीय, उदासीन या क्षारीय बांटो।"],cg:["0 ले 14 तक pH स्केल समझव।","नमूना अम्लीय, उदासीन या क्षारीय बांटव।"]},
-    outcomes:{en:["Identify neutral water at pH 7.","Explain why pH 2 (battery acid) and pH 13 (bleach) are dangerous.","Apply the 6.5–8.5 rule to real water samples."],hi:["pH 7 पर उदासीन जल पहचानना।","बताना क्यों pH 2 और pH 13 खतरनाक हैं।","6.5–8.5 नियम असली नमूनों पर लागू करना।"],pa:["pH 7 'ਤੇ ਨਿਰਪੱਖ ਪਾਣੀ ਦੀ ਪਛਾਣ ਕਰਨਾ।","ਦੱਸਣਾ ਕਿ pH 2 ਅਤੇ pH 13 ਕਿਉਂ ਖਤਰਨਾਕ ਹਨ।"],him:["pH 7 पर उदासीन पाणी पहचानो।","6.5–8.5 नियम असली नमूनों पर लगाओ।"],cg:["pH 7 म उदासीन पानी पहचानव।","6.5–8.5 नियम असली नमूना म लगावव।"]},
+    goals:{en:["Understand the pH scale from 0 to 14.","Classify samples as acidic (pH<7), neutral (pH=7), or basic (pH>7).","Recognise safe drinking water range: pH 6.5–8.5."],hi:["0 से 14 तक pH स्केल समझना।","नमूनों को अम्लीय, उदासीन या क्षारीय वर्गीकृत करना।"],pa:["0 ਤੋਂ 14 ਤੱਕ pH ਸਕੇਲ ਸਮਝਣਾ।","ਸੁਰੱਖਿਅਤ ਪਾਣੀ ਦੀ ਸੀਮਾ: pH 6.5–8.5।"],him:["0 से 14 तक pH स्केल समझो।"],cg:["0 ले 14 तक pH स्केल समझव।"]},
+    outcomes:{en:["Identify neutral water at pH 7.","Explain why pH 2 and pH 13 are dangerous.","Apply the 6.5–8.5 rule to real samples."],hi:["pH 7 पर उदासीन जल पहचानना।","6.5–8.5 नियम असली नमूनों पर लागू करना।"],pa:["pH 7 ਤੇ ਨਿਰਪੱਖ ਪਾਣੀ ਪਛਾਣੋ।"],him:["pH 7 पर उदासीन पाणी पहचानो।"],cg:["pH 7 म उदासीन पानी पहचानव।"]},
     leftHeading:{en:"pH Concept",hi:"pH अवधारणा",pa:"pH ਸੰਕਲਪ",him:"pH अवधारणा",cg:"pH अवधारणा"},
     leftSub:{en:"Learn the scale, then sort the cards",hi:"स्केल सीखें, फिर कार्ड क्रमबद्ध करें",pa:"ਸਕੇਲ ਸਿੱਖੋ, ਫਿਰ ਕਾਰਡ ਕ੍ਰਮਬੱਧ ਕਰੋ",him:"स्केल सीखो, फिर कार्ड क्रमबद्ध करो",cg:"स्केल सीखव, फेर कार्ड क्रमबद्ध करव"},
     centerHeading:{en:"Sample Cards",hi:"नमूना कार्ड",pa:"ਨਮੂਨਾ ਕਾਰਡ",him:"नमूना कार्ड",cg:"नमूना कार्ड"},
-    centerSub:{en:"Drag items into correct order (low pH → high pH)",hi:"वस्तुओं को सही क्रम में खींचें (कम pH → अधिक pH)",pa:"ਆਈਟਮਾਂ ਨੂੰ ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਖਿੱਚੋ",him:"सही क्रम में रखो (कम pH → ज्यादा pH)",cg:"सही क्रम म रखव (कम pH → ज्यादा pH)"},
+    centerSub:{en:"Drag into correct order (low pH → high pH)",hi:"सही क्रम में खींचें (कम pH → अधिक pH)",pa:"ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਖਿੱਚੋ",him:"सही क्रम में रखो",cg:"सही क्रम म रखव"},
     rightHeading:{en:"Arrangement Slots",hi:"व्यवस्था स्लॉट",pa:"ਵਿਵਸਥਾ ਸਲਾਟ",him:"व्यवस्था स्लॉट",cg:"व्यवस्था स्लॉट"},
     rightSub:{en:"Acidic → Neutral → Basic",hi:"अम्लीय → उदासीन → क्षारीय",pa:"ਤੇਜ਼ਾਬੀ → ਨਿਰਪੱਖ → ਖਾਰੀ",him:"अम्लीय → उदासीन → क्षारीय",cg:"अम्लीय → उदासीन → क्षारीय"},
     items:[
@@ -545,22 +605,23 @@ const levels={
     ],
     correctOrder:{en:["Lemon Juice (pH 2)","Black Coffee (pH 5)","Pure Water (pH 7)","Baking Soda (pH 9)","Soap Solution (pH 10)"],hi:["नींबू रस (pH 2)","काली कॉफी (pH 5)","शुद्ध जल (pH 7)","बेकिंग सोडा (pH 9)","साबुन घोल (pH 10)"],pa:["ਨਿੰਬੂ ਰਸ (pH 2)","ਕਾਲੀ ਕੌਫੀ (pH 5)","ਸ਼ੁੱਧ ਪਾਣੀ (pH 7)","ਬੇਕਿੰਗ ਸੋਡਾ (pH 9)","ਸਾਬਣ ਘੋਲ (pH 10)"],him:["निंबू रस (pH 2)","काली कॉफी (pH 5)","शुद्ध पाणी (pH 7)","बेकिंग सोडा (pH 9)","साबुन घोल (pH 10)"],cg:["नींबू रस (pH 2)","काली कॉफी (pH 5)","शुद्ध पानी (pH 7)","बेकिंग सोडा (pH 9)","साबुन घोल (pH 10)"]},
     slots:5,
-    hints:{en:"Arrange from lowest pH (most acidic) to highest pH (most basic). Lemon first, soap last.",hi:"सबसे कम pH (सबसे अम्लीय) से सबसे अधिक pH (सबसे क्षारीय) तक क्रमबद्ध करें।",pa:"ਸਭ ਤੋਂ ਘੱਟ pH (ਸਭ ਤੋਂ ਤੇਜ਼ਾਬੀ) ਤੋਂ ਉੱਚੇ pH ਤੱਕ ਕ੍ਰਮਬੱਧ ਕਰੋ।",him:"सबसे कम pH से सबसे ज्यादा pH तक क्रमबद्ध करो।",cg:"सबसे कम pH ले ज्यादा pH तक क्रमबद्ध करव।"},
+    hints:{en:"Arrange from lowest pH (most acidic) to highest pH (most basic). Lemon first, soap last.",hi:"सबसे कम pH से सबसे अधिक pH तक।",pa:"ਸਭ ਤੋਂ ਘੱਟ pH ਤੋਂ ਉੱਚੇ pH ਤੱਕ।",him:"सबसे कम pH से ज्यादा pH तक।",cg:"सबसे कम pH ले ज्यादा pH तक।"},
   },
   2:{
     title:{en:"Level 2: Turbidity Treatment",hi:"स्तर 2: टर्बिडिटी उपचार",pa:"ਪੱਧਰ 2: ਗੰਦਲਾਪਣ ਇਲਾਜ",him:"स्तर 2: गदलापण उपचार",cg:"स्तर 2: मटमैलापन उपचार"},
-    tags:["Turbidity","NTU","Treatment"],color:"#1fdb8a",
-    desc:{en:"Sequence the correct treatment steps to reduce turbidity from murky to safe drinking water.",hi:"टर्बिडिटी घटाने के सही उपचार चरणों को क्रमबद्ध करें।",pa:"ਪਾਣੀ ਸਾਫ਼ ਕਰਨ ਲਈ ਸਹੀ ਇਲਾਜ ਦੇ ਕਦਮਾਂ ਨੂੰ ਕ੍ਰਮਬੱਧ ਕਰੋ।",him:"गदलापण घटाने के सही उपचार चरण क्रमबद्ध करो।",cg:"मटमैलापन घटाए बर सही उपचार चरण क्रमबद्ध करव।"},
-    rationale:{en:"Turbidity above 5 NTU makes water look dirty and harbours pathogens. Treatment order matters: adding a coagulant first causes particles to clump (flocculation), settling removes large flocs, and filtration catches the rest. Skip a step and you get pathogen-laden water or a clogged filter.",hi:"5 NTU से अधिक टर्बिडिटी पानी को गंदा बनाती है और रोगजनक छुपाती है। उपचार का क्रम महत्वपूर्ण है।",pa:"5 NTU ਤੋਂ ਉੱਪਰ ਗੰਦਲਾਪਣ ਪਾਣੀ ਨੂੰ ਗੰਦਾ ਬਣਾਉਂਦਾ ਹੈ ਅਤੇ ਬਿਮਾਰੀ ਫੈਲਾਉਂਦਾ ਹੈ।",him:"5 NTU से ज्यादा गदलापण पाणी को गंदा बनांदा है।",cg:"5 NTU ले ज्यादा मटमैलापन पानी गंदा बनाथे।"},
+    tags:["Turbidity","NTU","Treatment"],
+    desc:{en:"Sequence the correct treatment steps to reduce turbidity to safe drinking water.",hi:"टर्बिडिटी घटाने के सही उपचार चरणों को क्रमबद्ध करें।",pa:"ਪਾਣੀ ਸਾਫ਼ ਕਰਨ ਲਈ ਇਲਾਜ ਦੇ ਕਦਮਾਂ ਨੂੰ ਕ੍ਰਮਬੱਧ ਕਰੋ।",him:"गदलापण घटाने के सही उपचार चरण क्रमबद्ध करो।",cg:"मटमैलापन घटाए बर सही उपचार चरण क्रमबद्ध करव।"},
+    rationale:{en:"Turbidity above 5 NTU harbours pathogens. Treatment order is critical: coagulant first (particles clump), then settling (removes large flocs), then filtration. Skip sedimentation and your filter clogs within hours.",hi:"5 NTU से अधिक टर्बिडिटी रोगजनक छुपाती है। उपचार का क्रम महत्वपूर्ण है।",pa:"5 NTU ਤੋਂ ਉੱਪਰ ਗੰਦਲਾਪਣ ਬਿਮਾਰੀ ਫੈਲਾਉਂਦਾ ਹੈ।",him:"5 NTU से ज्यादा गदलापण रोगजनक छुपाता है।",cg:"5 NTU ले ज्यादा मटमैलापन रोगजनक छुपाथे।"},
+    /* FIX 3: Clean embed URL */
     video: "https://www.youtube.com/embed/U7L5I3Nfnss",
-    goals:{en:["Understand NTU as a turbidity unit.","Learn why treatment order (coagulate → settle → filter) is critical.","Define safe turbidity as <5 NTU (WHO) and <1 NTU (WHO ideal)."],hi:["NTU को टर्बिडिटी इकाई के रूप में समझना।","उपचार क्रम (जमाव → बैठना → छनाई) का महत्त्व सीखना।","सुरक्षित टर्बिडिटी <5 NTU (WHO) परिभाषित करना।"],pa:["NTU ਨੂੰ ਗੰਦਲਾਪਣ ਇਕਾਈ ਵਜੋਂ ਸਮਝਣਾ।","ਇਲਾਜ ਕ੍ਰਮ ਦੀ ਮਹੱਤਤਾ ਸਿੱਖਣਾ।"],him:["NTU को टर्बिडिटी इकाई के रूप में समझो।","उपचार क्रम का महत्त्व सीखो।"],cg:["NTU ल टर्बिडिटी इकाई के रूप म समझव।","उपचार क्रम के महत्व सीखव।"]},
-    outcomes:{en:["Sequence coagulation, sedimentation, and filtration correctly.","Explain why skipping sedimentation clogs filters.","Identify real-world turbidity sources (silt, algae, bacteria)."],hi:["जमाव, अवसादन और छनाई को सही क्रम में लगाना।","बताना क्यों अवसादन छोड़ने से फ़िल्टर बंद होता है।","वास्तविक टर्बिडिटी स्रोत पहचानना।"],pa:["ਜਮਾਅ, ਤਲਛਟ ਅਤੇ ਫਿਲਟਰੇਸ਼ਨ ਨੂੰ ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਲਗਾਓ।"],him:["जमाव, अवसादन और छनाई सही क्रम में लगाओ।"],cg:["जमाव, तलछट अउ छनाई सही क्रम म लगावव।"]},
+    goals:{en:["Understand NTU as a turbidity unit.","Learn why treatment order is critical.","Define safe turbidity: <5 NTU (WHO)."],hi:["NTU को टर्बिडिटी इकाई के रूप में समझना।","उपचार क्रम का महत्त्व सीखना।"],pa:["NTU ਨੂੰ ਗੰਦਲਾਪਣ ਇਕਾਈ ਵਜੋਂ ਸਮਝਣਾ।"],him:["NTU को टर्बिडिटी इकाई के रूप में समझो।"],cg:["NTU ल टर्बिडिटी इकाई के रूप म समझव।"]},
+    outcomes:{en:["Sequence coagulation, sedimentation, and filtration correctly.","Explain why skipping sedimentation clogs filters.","Identify real-world turbidity sources."],hi:["जमाव, अवसादन और छनाई को सही क्रम में लगाना।"],pa:["ਜਮਾਅ, ਤਲਛਟ ਅਤੇ ਫਿਲਟਰੇਸ਼ਨ ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਲਗਾਓ।"],him:["जमाव, अवसादन और छनाई सही क्रम में लगाओ।"],cg:["जमाव, तलछट अउ छनाई सही क्रम म लगावव।"]},
     leftHeading:{en:"Treatment Concept",hi:"उपचार अवधारणा",pa:"ਇਲਾਜ ਸੰਕਲਪ",him:"उपचार अवधारणा",cg:"उपचार अवधारणा"},
     leftSub:{en:"Understand the treatment chain",hi:"उपचार श्रृंखला समझें",pa:"ਇਲਾਜ ਲੜੀ ਸਮਝੋ",him:"उपचार श्रृंखला समझो",cg:"उपचार श्रृंखला समझव"},
     centerHeading:{en:"Treatment Steps",hi:"उपचार चरण",pa:"ਇਲਾਜ ਦੇ ਕਦਮ",him:"उपचार चरण",cg:"उपचार चरण"},
     centerSub:{en:"Drag steps in the correct sequence",hi:"चरणों को सही क्रम में खींचें",pa:"ਕਦਮਾਂ ਨੂੰ ਸਹੀ ਕ੍ਰਮ ਵਿੱਚ ਖਿੱਚੋ",him:"चरणों को सही क्रम में रखो",cg:"चरण सही क्रम म रखव"},
     rightHeading:{en:"Treatment Pipeline",hi:"उपचार पाइपलाइन",pa:"ਇਲਾਜ ਪਾਈਪਲਾਈਨ",him:"उपचार पाइपलाइन",cg:"उपचार पाइपलाइन"},
-    rightSub:{en:"Murky → Clear (dirty water to safe water)",hi:"गंदा → साफ (गंदे पानी से सुरक्षित पानी)",pa:"ਗੰਦਾ → ਸਾਫ਼",him:"गंदा → साफ",cg:"गंदा → साफ"},
+    rightSub:{en:"Murky → Clear",hi:"गंदा → साफ",pa:"ਗੰਦਾ → ਸਾਫ਼",him:"गंदा → साफ",cg:"गंदा → साफ"},
     items:[
       {name:{en:"Screening (remove large debris)",hi:"स्क्रीनिंग (बड़ा कचरा हटाएं)",pa:"ਸਕ੍ਰੀਨਿੰਗ",him:"स्क्रीनिंग",cg:"स्क्रीनिंग"},role:"Step 1"},
       {name:{en:"Add Coagulant (Alum/FeCl₃)",hi:"कोएगुलेंट मिलाएं (एलम/FeCl₃)",pa:"ਕੋਆਗੂਲੈਂਟ ਪਾਓ",him:"कोएगुलेंट मिलाओ",cg:"कोएगुलेंट मिलावव"},role:"Step 2"},
@@ -571,16 +632,17 @@ const levels={
     ],
     correctOrder:{en:["Screening (remove large debris)","Add Coagulant (Alum/FeCl₃)","Flocculation (gentle mixing)","Sedimentation (allow settling)","Sand Filtration","Disinfection (Chlorination/UV)"],hi:["स्क्रीनिंग (बड़ा कचरा हटाएं)","कोएगुलेंट मिलाएं (एलम/FeCl₃)","फ्लॉकुलेशन (हल्की मिश्रण)","अवसादन (बैठने दें)","रेत छनाई","कीटाणुशोधन (क्लोरीनेशन/UV)"],pa:["ਸਕ੍ਰੀਨਿੰਗ","ਕੋਆਗੂਲੈਂਟ ਪਾਓ","ਫਲੌਕੁਲੇਸ਼ਨ","ਤਲਛਟ","ਰੇਤ ਫਿਲਟਰੇਸ਼ਨ","ਕੀਟਾਣੂ-ਰਹਿਤ"],him:["स्क्रीनिंग","कोएगुलेंट मिलाओ","फ्लॉकुलेशन","अवसादन","रेत छनाई","कीटाणुशोधन"],cg:["स्क्रीनिंग","कोएगुलेंट मिलावव","फ्लॉकुलेशन","तलछट","रेत छनाई","कीटाणुशोधन"]},
     slots:6,
-    hints:{en:"Start with physical screening, then chemistry (coagulant), then physics (settling), then mechanical (filter), then chemical (disinfect).",hi:"पहले फिजिकल स्क्रीनिंग, फिर रसायन (कोएगुलेंट), फिर भौतिकी (बैठना), फिर यांत्रिक (छनाई), फिर रासायनिक (कीटाणुशोधन)।",pa:"ਪਹਿਲਾਂ ਸਕ੍ਰੀਨਿੰਗ, ਫਿਰ ਕੋਆਗੂਲੈਂਟ, ਫਿਰ ਤਲਛਟ, ਫਿਰ ਫਿਲਟਰ, ਫਿਰ ਕੀਟਾਣੂ-ਰਹਿਤ।",him:"पहले स्क्रीनिंग, फिर कोएगुलेंट, फिर अवसादन, फिर छनाई, फिर कीटाणुशोधन।",cg:"पहले स्क्रीनिंग, फेर कोएगुलेंट, फेर तलछट, फेर छनाई, फेर कीटाणुशोधन।"},
+    hints:{en:"Physical screening → chemistry (coagulant) → flocculation → physics (settling) → mechanical (filter) → chemical (disinfect).",hi:"पहले स्क्रीनिंग, फिर कोएगुलेंट, फ्लॉकुलेशन, अवसादन, छनाई, कीटाणुशोधन।",pa:"ਪਹਿਲਾਂ ਸਕ੍ਰੀਨਿੰਗ, ਫਿਰ ਕੋਆਗੂਲੈਂਟ, ਤਲਛਟ, ਫਿਲਟਰ, ਕੀਟਾਣੂ-ਰਹਿਤ।",him:"पहले स्क्रीनिंग, फिर कोएगुलेंट, अवसादन, छनाई, कीटाणुशोधन।",cg:"पहले स्क्रीनिंग, फेर कोएगुलेंट, तलछट, छनाई, कीटाणुशोधन।"},
   },
   3:{
     title:{en:"Level 3: Parameter Validation",hi:"स्तर 3: मापदंड सत्यापन",pa:"ਪੱਧਰ 3: ਮਾਪਦੰਡ ਸਤਿਆਪਨ",him:"स्तर 3: मापदंड सत्यापन",cg:"स्तर 3: मापदंड सत्यापन"},
-    tags:["pH","Turbidity","Temperature","Intermediate"],color:"#ffbe4d",
-    desc:{en:"Use the sliders to set water parameters and validate whether the sample is safe for drinking.",hi:"स्लाइडर से जल मापदंड सेट करें और जाँचें कि नमूना पीने योग्य है या नहीं।",pa:"ਸਲਾਈਡਰਾਂ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਪਾਣੀ ਮਾਪਦੰਡ ਸੈੱਟ ਕਰੋ ਅਤੇ ਜਾਂਚੋ।",him:"स्लाइडर से पाणी मापदंड सेट करो और जाँचो।",cg:"स्लाइडर ले पानी मापदंड सेट करव अउ जाँचव।"},
-    rationale:{en:"Each parameter is a leverage point: adjusting pH prevents pipe corrosion and metal leaching; lowering turbidity removes pathogen hiding spots; controlling temperature slows bacterial growth. All three must be in range simultaneously – a safe pH with high turbidity still means contaminated water.",hi:"प्रत्येक मापदंड एक हस्तक्षेप बिंदु है: pH समायोजन पाइप संक्षारण रोकता है; टर्बिडिटी घटाना रोगजनक छिपने की जगह हटाता है; तापमान नियंत्रण बैक्टीरिया वृद्धि धीमी करता है।",pa:"ਹਰ ਮਾਪਦੰਡ ਇੱਕ ਲੀਵਰ ਪੁਆਇੰਟ ਹੈ: pH ਐਡਜਸਟਮੈਂਟ ਪਾਈਪ ਖੋਰ ਰੋਕਦੀ ਹੈ।",him:"हर मापदंड एक हस्तक्षेप बिंदु है: pH पाइप संक्षारण रोकता है।",cg:"हर मापदंड एक लीवर पुआइंट हे: pH पाइप खोरी रोकथे।"},
+    tags:["pH","Turbidity","Temperature","Intermediate"],
+    desc:{en:"Use sliders to set water parameters and validate whether the sample is safe for drinking.",hi:"स्लाइडर से मापदंड सेट करें और नमूना मान्य करें।",pa:"ਸਲਾਈਡਰਾਂ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਮਾਪਦੰਡ ਸੈੱਟ ਕਰੋ ਅਤੇ ਜਾਂਚੋ।",him:"स्लाइडर से मापदंड सेट करो और जाँचो।",cg:"स्लाइडर ले मापदंड सेट करव अउ जाँचव।"},
+    rationale:{en:"Each parameter is a leverage point: pH prevents pipe corrosion and metal leaching; lowering turbidity removes pathogen hiding spots; controlling temperature slows bacterial growth. All three must be in range simultaneously.",hi:"प्रत्येक मापदंड एक हस्तक्षेप बिंदु है। सभी तीन एक साथ सीमा में होने चाहिए।",pa:"ਹਰ ਮਾਪਦੰਡ ਇੱਕ ਲੀਵਰ ਪੁਆਇੰਟ ਹੈ।",him:"हर मापदंड एक हस्तक्षेप बिंदु है।",cg:"हर मापदंड एक लीवर पुआइंट हे।"},
+    /* FIX 3: Clean embed URL */
     video: "https://www.youtube.com/embed/dJr2u2dhcRA",
-    goals:{en:["Define safe ranges: pH 6.5–8.5, turbidity <5 NTU, temperature 10–30°C.","Understand how temperature affects molecular kinetics and contaminant solubility.","Recognise that all parameters must be within range simultaneously."],hi:["सुरक्षित सीमाएँ परिभाषित करना: pH 6.5–8.5, टर्बिडिटी <5 NTU, तापमान 10–30°C।","तापमान का आणविक गतिकी पर प्रभाव समझना।","सभी मापदंडों का एक साथ सीमा में होना जरूरी है।"],pa:["ਸੁਰੱਖਿਅਤ ਸੀਮਾਵਾਂ: pH 6.5–8.5, ਗੰਦਲਾਪਣ <5 NTU, ਤਾਪਮਾਨ 10–30°C।"],him:["सुरक्षित सीमाएँ: pH 6.5–8.5, गदलापण <5 NTU, तापमान 10–30°C।"],cg:["सुरक्षित सीमा: pH 6.5–8.5, मटमैलापन <5 NTU, तापमान 10–30°C।"]},
-    outcomes:{en:["Set parameters to safe ranges and validate a sample.","Explain what happens when temperature exceeds 30°C (faster bacterial growth).","Describe the relationship between turbidity and pathogen concealment."],hi:["मापदंडों को सुरक्षित सीमाओं में सेट करना और नमूना मान्य करना।","30°C से अधिक तापमान पर क्या होता है, बताना।","टर्बिडिटी और रोगजनक छिपाव का संबंध बताना।"],pa:["ਮਾਪਦੰਡਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਸੀਮਾਵਾਂ ਵਿੱਚ ਸੈੱਟ ਕਰਨਾ।"],him:["मापदंडों को सुरक्षित सीमाओं में सेट करो।"],cg:["मापदंड ल सुरक्षित सीमा म सेट करव।"]},
+    goals:{en:["Define safe ranges: pH 6.5–8.5, turbidity <5 NTU, temperature 10–30°C.","Understand how temperature affects molecular kinetics.","Recognise that all parameters must be within range simultaneously."],hi:["सुरक्षित सीमाएँ: pH 6.5–8.5, <5 NTU, 10–30°C।"],pa:["ਸੁਰੱਖਿਅਤ ਸੀਮਾਵਾਂ: pH 6.5–8.5, ਗੰਦਲਾਪਣ <5 NTU, ਤਾਪਮਾਨ 10–30°C।"],him:["सुरक्षित सीमाएँ: pH 6.5–8.5, <5 NTU, 10–30°C।"],cg:["सुरक्षित सीमा: pH 6.5–8.5, <5 NTU, 10–30°C।"]},
+    outcomes:{en:["Set all parameters to safe ranges and validate a sample.","Explain what happens when temperature exceeds 30°C.","Describe the relationship between turbidity and pathogen concealment."],hi:["मापदंड सुरक्षित सीमाओं में सेट करना और नमूना मान्य करना।"],pa:["ਮਾਪਦੰਡਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਸੀਮਾਵਾਂ ਵਿੱਚ ਸੈੱਟ ਕਰਨਾ।"],him:["मापदंडों को सुरक्षित सीमाओं में सेट करो।"],cg:["मापदंड ल सुरक्षित सीमा म सेट करव।"]},
     leftHeading:{en:"Dynamic Model",hi:"गतिशील मॉडल",pa:"ਡਾਇਨਾਮਿਕ ਮਾਡਲ",him:"गतिशील मॉडल",cg:"गतिशील मॉडल"},
     leftSub:{en:"Concept + video",hi:"अवधारणा + वीडियो",pa:"ਸੰਕਲਪ + ਵੀਡੀਓ",him:"अवधारणा + वीडियो",cg:"अवधारणा + वीडियो"},
     centerHeading:{en:"Adjust Parameters",hi:"मापदंड समायोजित करें",pa:"ਮਾਪਦੰਡ ਅਡਜਸਟ ਕਰੋ",him:"मापदंड समायोजित करो",cg:"मापदंड समायोजित करव"},
@@ -588,24 +650,24 @@ const levels={
     rightHeading:{en:"Mission Console",hi:"मिशन कंसोल",pa:"ਮਿਸ਼ਨ ਕੰਸੋਲ",him:"मिशन कंसोल",cg:"मिशन कंसोल"},
     rightSub:{en:"Quiz unlocks after validation",hi:"सत्यापन के बाद प्रश्नोत्तरी खुलती है",pa:"ਸਤਿਆਪਨ ਤੋਂ ਬਾਅਦ ਕੁਇਜ਼ ਖੁੱਲਦੀ ਹੈ",him:"सत्यापन के बाद प्रश्नोत्तरी खुलती है",cg:"सत्यापन बाद प्रश्नोत्तरी खुलथे"},
     items:[],correctOrder:{en:[],hi:[],pa:[],him:[],cg:[]},slots:0,
-    hints:{en:"Safe ranges: pH 6.5–8.5, Turbidity <5 NTU, Temperature 10–30°C. Set all three correctly!",hi:"सुरक्षित सीमाएँ: pH 6.5–8.5, टर्बिडिटी <5 NTU, तापमान 10–30°C। तीनों सही सेट करें!",pa:"ਸੁਰੱਖਿਅਤ ਸੀਮਾਵਾਂ: pH 6.5–8.5, ਗੰਦਲਾਪਣ <5 NTU, ਤਾਪਮਾਨ 10–30°C।",him:"सुरक्षित सीमाएँ: pH 6.5–8.5, गदलापण <5 NTU, तापमान 10–30°C।",cg:"सुरक्षित सीमा: pH 6.5–8.5, मटमैलापन <5 NTU, तापमान 10–30°C।"},
+    hints:{en:"Safe ranges: pH 6.5–8.5 · Turbidity <5 NTU · Temperature 10–30°C. Set all three!",hi:"सुरक्षित: pH 6.5–8.5, <5 NTU, 10–30°C।",pa:"pH 6.5–8.5, <5 NTU, 10–30°C।",him:"pH 6.5–8.5, <5 NTU, 10–30°C।",cg:"pH 6.5–8.5, <5 NTU, 10–30°C।"},
   },
   4:{
     title:{en:"Level 4: Heavy Metals Crisis",hi:"स्तर 4: भारी धातु संकट",pa:"ਪੱਧਰ 4: ਭਾਰੀ ਧਾਤੂ ਸੰਕਟ",him:"स्तर 4: भारी धातु संकट",cg:"स्तर 4: भारी धातु संकट"},
-    tags:["Heavy Metals","Regional Data","Advanced"],color:"#ff6b6b",
-    desc:{en:"Analyse real heavy metal contamination data from Punjab, Himachal Pradesh, and Chhattisgarh. Assess which samples exceed WHO/BIS limits.",hi:"पंजाब, हिमाचल प्रदेश और छत्तीसगढ़ की वास्तविक भारी धातु संदूषण डेटा का विश्लेषण करें।",pa:"ਪੰਜਾਬ, ਹਿਮਾਚਲ ਪ੍ਰਦੇਸ਼ ਅਤੇ ਛੱਤੀਸਗੜ੍ਹ ਦੇ ਅਸਲੀ ਭਾਰੀ ਧਾਤੂ ਪ੍ਰਦੂਸ਼ਣ ਡੇਟਾ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ।",him:"पंजाब, हिमाचल प्रदेश और छत्तीसगढ़ की असली भारी धातु डेटा का विश्लेषण करो।",cg:"पंजाब, हिमाचल प्रदेश अउ छत्तीसगढ़ के असली भारी धातु डेटा के विश्लेषण करव।"},
-    rationale:{en:"Heavy metals cannot be detected by smell or taste – you need measurement. Even at low concentrations, arsenic causes cancer, lead damages children's brains, fluoride causes crippling bone disease, and nitrate causes infant deaths. Punjab's intensive agriculture has driven groundwater nitrate to 4× the safe limit in some districts. This is why measurement and monitoring are the first interventions that create leverage for all others.",hi:"भारी धातुएं गंध या स्वाद से नहीं पहचानी जा सकतीं – माप जरूरी है। कम सांद्रता पर भी आर्सेनिक कैंसर, सीसा बच्चों के दिमाग, फ्लोराइड हड्डी रोग, नाइट्रेट शिशु मृत्यु का कारण बनते हैं।",pa:"ਭਾਰੀ ਧਾਤਾਂ ਗੰਧ ਜਾਂ ਸੁਆਦ ਤੋਂ ਨਹੀਂ ਪਛਾਣੀਆਂ ਜਾ ਸਕਦੀਆਂ। ਆਰਸੈਨਿਕ ਕੈਂਸਰ, ਲੀਡ ਦਿਮਾਗੀ ਨੁਕਸਾਨ ਕਰਦੀ ਹੈ।",him:"भारी धातुएं गंध या स्वाद से नहीं पहचानी जाती – माप जरूरी है।",cg:"भारी धातु गंध या स्वाद ले नी पहचाने जाथें – माप जरूरी हे।"},
-    video:"https://www.youtube-nocookie.com/embed/HiTpZziwPzk",
-    goals:{en:["Identify WHO/BIS permissible limits for arsenic, fluoride, lead, and nitrate.","Correlate regional geography with contamination sources (industrial, agricultural, geological).","Understand bioaccumulation and chronic health effects of heavy metal exposure."],hi:["आर्सेनिक, फ्लोराइड, सीसा और नाइट्रेट की WHO/BIS सीमाएँ पहचानना।","क्षेत्रीय भूगोल को संदूषण स्रोतों (औद्योगिक, कृषि, भूवैज्ञानिक) से जोड़ना।","भारी धातु के दीर्घकालिक स्वास्थ्य प्रभाव समझना।"],pa:["ਆਰਸੈਨਿਕ, ਫਲੋਰਾਈਡ, ਲੀਡ ਅਤੇ ਨਾਈਟ੍ਰੇਟ ਦੀਆਂ WHO/BIS ਸੀਮਾਵਾਂ ਪਛਾਣਨਾ।"],him:["आर्सेनिक, फ्लोराइड, सीसा और नाइट्रेट की WHO/BIS सीमाएँ पहचानो।"],cg:["आर्सेनिक, फ्लोराइड, सीसा अउ नाइट्रेट के WHO/BIS सीमा पहचानव।"]},
-    outcomes:{en:["State why Punjab's arsenic levels are critical (historical geology + tube-well depth).","Explain Chhattisgarh's fluoride crisis and its link to fluorosis prevalence.","Compare contamination severity across regions using the data table."],hi:["बताना क्यों पंजाब की आर्सेनिक स्तर गंभीर है (ऐतिहासिक भूविज्ञान + ट्यूब-वेल गहराई)।","छत्तीसगढ़ के फ्लोराइड संकट और फ्लोरोसिस का संबंध समझाना।","डेटा तालिका का उपयोग करके क्षेत्रों की तुलना करना।"],pa:["ਪੰਜਾਬ ਦੇ ਆਰਸੈਨਿਕ ਪੱਧਰਾਂ ਦੀ ਗੰਭੀਰਤਾ ਦੱਸਣਾ।"],him:["पंजाब की आर्सेनिक गंभीरता बताओ।"],cg:["पंजाब के आर्सेनिक स्तर के गंभीरता बताव।"]},
+    tags:["Heavy Metals","Regional Data","Advanced"],
+    desc:{en:"Analyse real heavy metal contamination data from Punjab, HP, and Chhattisgarh. Assess which samples exceed WHO/BIS limits.",hi:"पंजाब, HP और छत्तीसगढ़ की वास्तविक भारी धातु डेटा का विश्लेषण करें।",pa:"ਪੰਜਾਬ, HP ਅਤੇ ਛੱਤੀਸਗੜ੍ਹ ਦੇ ਅਸਲੀ ਭਾਰੀ ਧਾਤੂ ਡੇਟਾ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ।",him:"पंजाब, HP और छत्तीसगढ़ की असली भारी धातु डेटा का विश्लेषण करो।",cg:"पंजाब, HP अउ छत्तीसगढ़ के असली भारी धातु डेटा के विश्लेषण करव।"},
+    rationale:{en:"Heavy metals are invisible, tasteless, and odourless — they require measurement. Arsenic causes cancer; lead damages children's brains permanently; fluoride causes crippling skeletal fluorosis; nitrate causes infant deaths. Punjab's groundwater nitrate reaches 4× the safe limit in some districts due to intensive agriculture.",hi:"भारी धातुएं गंध या स्वाद से नहीं पहचानी जाती – माप जरूरी है।",pa:"ਭਾਰੀ ਧਾਤਾਂ ਗੰਧ ਜਾਂ ਸੁਆਦ ਤੋਂ ਨਹੀਂ ਪਛਾਣੀਆਂ ਜਾ ਸਕਦੀਆਂ।",him:"भारी धातुएं गंध या स्वाद से नहीं पहचानी जाती।",cg:"भारी धातु गंध या स्वाद ले नी पहचाने जाथें।"},
+    video:"https://www.youtube.com/embed/HiTpZziwPzk",
+    goals:{en:["Identify WHO/BIS permissible limits for arsenic, fluoride, lead, and nitrate.","Correlate regional geography with contamination sources.","Understand chronic health effects of heavy metal exposure."],hi:["WHO/BIS सीमाएँ पहचानना।","क्षेत्रीय भूगोल को संदूषण स्रोतों से जोड़ना।"],pa:["WHO/BIS ਸੀਮਾਵਾਂ ਪਛਾਣਨਾ।"],him:["WHO/BIS सीमाएँ पहचानो।"],cg:["WHO/BIS सीमा पहचानव।"]},
+    outcomes:{en:["State why Punjab's arsenic levels are critical.","Explain Chhattisgarh's fluoride crisis and fluorosis link.","Compare contamination severity across regions."],hi:["पंजाब की आर्सेनिक गंभीरता बताना।","छत्तीसगढ़ के फ्लोराइड संकट का संबंध समझाना।"],pa:["ਪੰਜਾਬ ਦੀ ਆਰਸੈਨਿਕ ਗੰਭੀਰਤਾ ਦੱਸਣਾ।"],him:["पंजाब की आर्सेनिक गंभीरता बताओ।"],cg:["पंजाब के आर्सेनिक स्तर के गंभीरता बताव।"]},
     leftHeading:{en:"Regional Contamination",hi:"क्षेत्रीय संदूषण",pa:"ਖੇਤਰੀ ਪ੍ਰਦੂਸ਼ਣ",him:"क्षेत्रीय संदूषण",cg:"क्षेत्रीय संदूषण"},
     leftSub:{en:"Real data from Punjab, HP, Chhattisgarh",hi:"पंजाब, HP, छत्तीसगढ़ से वास्तविक डेटा",pa:"ਪੰਜਾਬ, HP, ਛੱਤੀਸਗੜ੍ਹ ਤੋਂ ਅਸਲੀ ਡੇਟਾ",him:"पंजाब, HP, छत्तीसगढ़ से असली डेटा",cg:"पंजाब, HP, छत्तीसगढ़ ले असली डेटा"},
     centerHeading:{en:"Metal Concentration Sliders",hi:"धातु सांद्रता स्लाइडर",pa:"ਧਾਤੂ ਸੰਘਣਤਾ ਸਲਾਈਡਰ",him:"धातु सांद्रता स्लाइडर",cg:"धातु सांद्रता स्लाइडर"},
-    centerSub:{en:"Set values and assess against WHO/BIS limits",hi:"WHO/BIS सीमाओं के विरुद्ध मान सेट करें और आकलन करें",pa:"WHO/BIS ਸੀਮਾਵਾਂ ਦੇ ਵਿਰੁੱਧ ਮੁੱਲ ਸੈੱਟ ਕਰੋ",him:"WHO/BIS सीमाओं के विरुद्ध मान सेट करो",cg:"WHO/BIS सीमा के खिलाफ मान सेट करव"},
+    centerSub:{en:"Set values and assess against WHO/BIS limits",hi:"WHO/BIS सीमाओं के विरुद्ध मान सेट करें",pa:"WHO/BIS ਸੀਮਾਵਾਂ ਦੇ ਵਿਰੁੱਧ ਮੁੱਲ ਸੈੱਟ ਕਰੋ",him:"WHO/BIS सीमाओं के विरुद्ध मान सेट करो",cg:"WHO/BIS सीमा के खिलाफ मान सेट करव"},
     rightHeading:{en:"Regional Data + Quiz",hi:"क्षेत्रीय डेटा + प्रश्नोत्तरी",pa:"ਖੇਤਰੀ ਡੇਟਾ + ਕੁਇਜ਼",him:"क्षेत्रीय डेटा + प्रश्नोत्तरी",cg:"क्षेत्रीय डेटा + प्रश्नोत्तरी"},
     rightSub:{en:"WHO/BIS limits vs real samples",hi:"WHO/BIS सीमाएँ बनाम वास्तविक नमूने",pa:"WHO/BIS ਸੀਮਾਵਾਂ ਬਨਾਮ ਅਸਲੀ ਨਮੂਨੇ",him:"WHO/BIS सीमाएँ बनाम असली नमूने",cg:"WHO/BIS सीमा बनाम असली नमूना"},
     items:[],correctOrder:{en:[],hi:[],pa:[],him:[],cg:[]},slots:0,
-    hints:{en:"Arsenic WHO limit: 10 μg/L. Fluoride BIS limit: 1 mg/L. Lead WHO limit: 10 μg/L. Nitrate WHO limit: 50 mg/L. Punjab has highest arsenic; Chhattisgarh highest fluoride.",hi:"आर्सेनिक WHO सीमा: 10 μg/L। फ्लोराइड BIS सीमा: 1 mg/L। सीसा WHO सीमा: 10 μg/L। नाइट्रेट WHO सीमा: 50 mg/L।",pa:"ਆਰਸੈਨਿਕ WHO ਸੀਮਾ: 10 μg/L। ਫਲੋਰਾਈਡ BIS ਸੀਮਾ: 1 mg/L।",him:"आर्सेनिक WHO सीमा: 10 μg/L। फ्लोराइड BIS सीमा: 1 mg/L।",cg:"आर्सेनिक WHO सीमा: 10 μg/L। फ्लोराइड BIS सीमा: 1 mg/L।"},
+    hints:{en:"Arsenic limit: 10 μg/L · Fluoride BIS limit: 1 mg/L · Lead limit: 10 μg/L · Nitrate limit: 50 mg/L. Punjab has highest arsenic; Chhattisgarh highest fluoride.",hi:"आर्सेनिक: 10 μg/L, फ्लोराइड: 1 mg/L, सीसा: 10 μg/L, नाइट्रेट: 50 mg/L।",pa:"ਆਰਸੈਨਿਕ: 10 μg/L, ਫਲੋਰਾਈਡ: 1 mg/L।",him:"आर्सेनिक: 10 μg/L, फ्लोराइड: 1 mg/L।",cg:"आर्सेनिक: 10 μg/L, फ्लोराइड: 1 mg/L।"},
   }
 };
 
@@ -613,230 +675,405 @@ const levels={
    STATE
 ═══════════════════════════════════════════════════════════════ */
 const state={
-  userName:'',savedUsers:JSON.parse(localStorage.getItem('hydro_users')||'[]'),
-  language:'en',currentLevel:1,coins:0,stepsPlaced:[],draggedItem:null,
-  completed:new Set(),ph:7,turb:45,temp:25,
-  as_:10,f:1.0,pb:5,no3:20,
-  controlsPassed:false,level4Passed:false,quizDone:false,levelPassed:false,
+  userName:'',
+  savedUsers: JSON.parse(localStorage.getItem('hydro_users')||'[]'),
+  language:'en',
+  currentLevel:1,
+  coins:0,
+  /* FIX 4: stepsPlaced is now an array of {itemName, slotIndex} mappings
+     tracked per-slot so items can be removed and placed again freely. */
+  slotContents: [],   // slotContents[i] = string item name | undefined
+  draggedItem: null,  // currently dragged item name (from source list)
+  draggedFromSlot: null, // if dragging OUT of a slot, its index
+  completed: new Set(),
+  ph:7, turb:45, temp:25,
+  as_:10, f:1.0, pb:5, no3:20,
+  controlsPassed:false, level4Passed:false,
+  quizDone:false, levelPassed:false,
   usedQuestions:{1:[],2:[],3:[],4:[]},
 };
 
-function t(k){return(i18n[state.language]||i18n.en)[k]||i18n.en[k]||k;}
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
-function L(){return levels[state.currentLevel];}
+const t = k => (i18n[state.language]||i18n.en)[k] || i18n.en[k] || k;
+const $ = id => document.getElementById(id);
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function L(){ return levels[state.currentLevel]; }
 
-/* ─── i18n apply ─── */
+/* ─── i18n ─── */
 function applyI18n(){
-  const keys=['tagline','heroBadge','heroTitle','heroSub','oc1h','oc1p','oc2h','oc2p','oc3h','oc3p','oc4h','oc4p','nameLabel','savedLabel','enterBtn','homeTitle','homeSub','lbBtn','lbTitle','lbSub','lbBack','lbColName','lbColScore','lbColTasks','hintBtn','exitBtn','nextBtn','goalsHeading','outcomesHeading','rationaleTitle','pollutantIntro'];
-  keys.forEach(k=>{const el=document.getElementById(k);if(el)el.textContent=t(k);});
+  ['tagline','heroBadge','heroTitle','heroSub','oc1h','oc1p','oc2h','oc2p','oc3h','oc3p','oc4h','oc4p',
+   'nameLabel','savedLabel','enterBtn','homeTitle','homeSub','lbBtn','lbTitle','lbSub','lbBack',
+   'lbColName','lbColScore','lbColTasks','hintBtn','exitBtn','nextBtn',
+   'goalsHeading','outcomesHeading','rationaleTitle','pollutantIntro'
+  ].forEach(k=>{ const el=$(k); if(el) el.textContent=t(k); });
   renderHomeLevels();
-  if(document.getElementById('gameScreen').classList.contains('active')){
-    applyLevelText(state.currentLevel);renderLevelUI();
+  if($('gameScreen').classList.contains('active')){
+    applyLevelText(state.currentLevel); renderLevelUI();
   }
 }
 
 /* ─── HOME LEVELS ─── */
 function renderHomeLevels(){
-  document.getElementById('levelsGrid').innerHTML=Object.entries(levels).map(([id,l])=>{
-    const done=state.completed.has(Number(id));
-    const stars=done?'⭐':'';
-    return`<div class="level-card" onclick="startLevel(${id})">
+  $('levelsGrid').innerHTML = Object.entries(levels).map(([id,l])=>`
+    <div class="level-card" onclick="startLevel(${id})">
       <div class="level-num">${t('levelLabel')} ${id}</div>
       <div class="level-title">${l.title[state.language]||l.title.en}</div>
       <div class="level-desc">${l.desc[state.language]||l.desc.en}</div>
       <div class="level-meta">${l.tags.map(tg=>`<span class="tag">${tg}</span>`).join('')}</div>
-      <div class="level-stars">${stars}</div>
-    </div>`;
-  }).join('');
+      <div class="level-stars">${state.completed.has(Number(id))?'⭐':''}</div>
+    </div>`).join('');
 }
 
 /* ─── LEVEL START ─── */
 function startLevel(id){
-  state.currentLevel=id;state.stepsPlaced=[];state.controlsPassed=false;
-  state.level4Passed=false;state.quizDone=false;state.levelPassed=false;
-  showScreen('gameScreen');applyLevelText(id);renderLevelUI();
+  state.currentLevel=id;
+  state.slotContents=[];
+  state.draggedItem=null; state.draggedFromSlot=null;
+  state.controlsPassed=false; state.level4Passed=false;
+  state.quizDone=false; state.levelPassed=false;
+  showScreen('gameScreen'); applyLevelText(id); renderLevelUI();
 }
-function exitToHome(){showScreen('homeScreen');}
-function nextLevel(){
-  const next=state.currentLevel===4?1:state.currentLevel+1;
-  startLevel(next);
-}
+function exitToHome(){ showScreen('homeScreen'); }
+function nextLevel(){ startLevel(state.currentLevel===4?1:state.currentLevel+1); }
 
 /* ─── APPLY LEVEL TEXT ─── */
 function applyLevelText(id){
-  const l=levels[id];const lang=state.language;
-  const g=el=>document.getElementById(el);
-  g('hudTitle').textContent=l.title[lang]||l.title.en;
-  g('hudMeta').textContent=(l.tags||[]).join(' · ');
-  g('leftHeading').textContent=l.leftHeading[lang]||l.leftHeading.en;
-  g('leftSub').textContent=l.leftSub[lang]||l.leftSub.en;
-  g('centerHeading').textContent=l.centerHeading[lang]||l.centerHeading.en;
-  g('centerSub').textContent=l.centerSub[lang]||l.centerSub.en;
-  g('rightHeading').textContent=l.rightHeading[lang]||l.rightHeading.en;
-  g('rightSub').textContent=l.rightSub[lang]||l.rightSub.en;
-  g('rationaleText').textContent=l.rationale[lang]||l.rationale.en;
-  g('goalsList').innerHTML=(l.goals[lang]||l.goals.en).map(x=>`<li>${x}</li>`).join('');
-  g('outcomesList').innerHTML=(l.outcomes[lang]||l.outcomes.en).map(x=>`<li>${x}</li>`).join('');
-  g('conceptVideo').src=l.video||'';
-  // HUD progress
-  const prog=g('hudProgress');
-  prog.innerHTML=Object.keys(levels).map(lid=>`<div class="prog-dot ${state.completed.has(Number(lid))?'done':Number(lid)===id?'active':''}"></div>`).join('');
+  const l=levels[id]; const lang=state.language;
+  $('hudTitle').textContent   = l.title[lang]||l.title.en;
+  $('hudMeta').textContent    = (l.tags||[]).join(' · ');
+  $('leftHeading').textContent= l.leftHeading[lang]||l.leftHeading.en;
+  $('leftSub').textContent    = l.leftSub[lang]||l.leftSub.en;
+  $('centerHeading').textContent = l.centerHeading[lang]||l.centerHeading.en;
+  $('centerSub').textContent  = l.centerSub[lang]||l.centerSub.en;
+  $('rightHeading').textContent  = l.rightHeading[lang]||l.rightHeading.en;
+  $('rightSub').textContent   = l.rightSub[lang]||l.rightSub.en;
+  $('rationaleText').textContent = l.rationale[lang]||l.rationale.en;
+  $('goalsList').innerHTML    = (l.goals[lang]||l.goals.en).map(x=>`<li>${x}</li>`).join('');
+  $('outcomesList').innerHTML = (l.outcomes[lang]||l.outcomes.en).map(x=>`<li>${x}</li>`).join('');
+  /* FIX 3: Set clean embed URL directly — no mutation */
+  $('conceptVideo').src = l.video || '';
+  // HUD progress dots
+  $('hudProgress').innerHTML = Object.keys(levels).map(lid=>
+    `<div class="prog-dot ${state.completed.has(Number(lid))?'done':Number(lid)===id?'active':''}"></div>`
+  ).join('');
 }
 
 /* ─── RENDER LEVEL UI ─── */
 function renderLevelUI(){
-  const l=L();const lang=state.language;
-  document.getElementById('materialList').innerHTML='';
-  document.getElementById('slotsContainer').innerHTML='';
-  document.getElementById('feedbackBanner').className='feedback-banner';
-  document.getElementById('quizArea').classList.add('hidden');
-  document.getElementById('placedCount').textContent='';
-  document.getElementById('l3Result').classList.add('hidden');
-  document.getElementById('l4Result').classList.add('hidden');
-  document.getElementById('pollutantPanel').classList.add('hidden');
+  const l=L(); const lang=state.language;
+  $('materialList').innerHTML='';
+  $('slotsContainer').innerHTML='';
+  $('feedbackBanner').className='feedback-banner';
+  $('quizArea').classList.add('hidden');
+  $('placedCount').textContent='';
+  $('l3Result').classList.add('hidden');
+  $('l4Result').classList.add('hidden');
+  $('pollutantPanel').classList.add('hidden');
 
   const isL3=state.currentLevel===3;
   const isL4=state.currentLevel===4;
-  document.getElementById('level3Controls').classList.toggle('hidden',!isL3);
-  document.getElementById('level4Controls').classList.toggle('hidden',!isL4);
+  $('level3Controls').classList.toggle('hidden',!isL3);
+  $('level4Controls').classList.toggle('hidden',!isL4);
 
-  if(isL3){resetSliders();}
-  if(isL4){resetMetalSliders();renderPollutantTable();}
+  if(isL3){ resetSliders(); }
+  if(isL4){ resetMetalSliders(); renderPollutantTable(); }
 
-  // shuffle and render items
+  /* FIX 4: render draggable source items */
   if(l.items.length>0){
     const shuffled=[...l.items].sort(()=>Math.random()-0.5);
     shuffled.forEach(it=>{
       const name=it.name[lang]||it.name.en;
-      const div=document.createElement('div');div.className='material-item';div.draggable=true;
-      div.dataset.name=name;
+      const div=document.createElement('div');
+      div.className='material-item'; div.draggable=true; div.dataset.name=name;
       div.innerHTML=`<span class="material-name">${name}</span><span class="material-role">${it.role}</span>`;
-      div.addEventListener('dragstart',()=>state.draggedItem=name);
-      div.addEventListener('touchstart',()=>state.draggedItem=name,{passive:true});
-      document.getElementById('materialList').appendChild(div);
+      attachSourceDrag(div);
+      $('materialList').appendChild(div);
     });
+    /* FIX 4: render empty slots */
     for(let i=0;i<l.slots;i++){
-      const el=document.createElement('div');el.className='slot';el.textContent=t('dropHere');
-      el.dataset.idx=i;
-      el.addEventListener('dragover',e=>e.preventDefault());
-      el.addEventListener('drop',e=>{e.preventDefault();handleDrop(i);});
-      el.addEventListener('click',()=>{if(state.draggedItem)handleDrop(i);});
-      document.getElementById('slotsContainer').appendChild(el);
+      const el=document.createElement('div');
+      el.className='slot'; el.dataset.idx=i;
+      el.innerHTML=`<span class="slot-num">${i+1}</span><span>${t('dropHere')}</span>`;
+      attachSlotDrop(el,i);
+      $('slotsContainer').appendChild(el);
     }
     updatePlacedCount();
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FIX 4: DRAG & DROP ENGINE
+   • Source items can be dragged to any empty slot
+   • Filled slots show a (×) remove button — click it to return
+     the item to the source list, freeing the slot
+   • Slots can also be dragged to swap contents
+   • Rearrangement works infinitely until level is submitted
+═══════════════════════════════════════════════════════════════ */
+
+/** Attach drag handlers to a SOURCE item card */
+function attachSourceDrag(el){
+  el.addEventListener('dragstart', e=>{
+    state.draggedItem     = el.dataset.name;
+    state.draggedFromSlot = null;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.name);
+  });
+  el.addEventListener('dragend', ()=>el.classList.remove('dragging'));
+  // Touch support for mobile
+  el.addEventListener('touchstart', ()=>{ state.draggedItem=el.dataset.name; state.draggedFromSlot=null; }, {passive:true});
+}
+
+/** Attach drag handlers to a SLOT div */
+function attachSlotDrop(el, idx){
+  el.addEventListener('dragover', e=>{
+    e.preventDefault();
+    el.classList.add('drag-active');
+    e.dataTransfer.dropEffect = 'move';
+  });
+  el.addEventListener('dragleave', ()=>el.classList.remove('drag-active'));
+  el.addEventListener('drop', e=>{
+    e.preventDefault();
+    el.classList.remove('drag-active');
+    const itemName = e.dataTransfer.getData('text/plain') || state.draggedItem;
+    if(!itemName) return;
+    placeItemInSlot(itemName, idx);
+  });
+  // Touch tap-to-place
+  el.addEventListener('click', ()=>{
+    if(state.draggedItem) placeItemInSlot(state.draggedItem, idx);
+  });
+  // Allow dragging OUT of a filled slot
+  el.addEventListener('dragstart', e=>{
+    if(!state.slotContents[idx]) return;
+    state.draggedItem     = state.slotContents[idx];
+    state.draggedFromSlot = idx;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', state.slotContents[idx]);
+  });
+}
+
+/** Place an item into a specific slot index.
+    If the slot is already filled, swap the items. */
+function placeItemInSlot(itemName, targetIdx){
+  const currentOccupant = state.slotContents[targetIdx];
+
+  // If dragging from another slot, vacate that slot first
+  if(state.draggedFromSlot !== null && state.draggedFromSlot !== targetIdx){
+    const srcIdx = state.draggedFromSlot;
+    // Swap: put currentOccupant into source slot
+    state.slotContents[srcIdx] = currentOccupant || undefined;
+    renderSlot(srcIdx);
+  }
+
+  // Place item into target slot
+  state.slotContents[targetIdx] = itemName;
+  renderSlot(targetIdx);
+
+  // Clear drag state
+  state.draggedItem     = null;
+  state.draggedFromSlot = null;
+
+  updatePlacedCount();
+  // Auto-check only when all slots are filled (non-blocking)
+  if(state.slotContents.filter(Boolean).length === L().slots){
+    checkCompletion();
+  }
+}
+
+/** Re-render a single slot based on current slotContents state */
+function renderSlot(idx){
+  const el = $('slotsContainer').children[idx];
+  if(!el) return;
+  const name = state.slotContents[idx];
+  if(name){
+    el.className='slot filled';
+    el.draggable=true;
+    el.innerHTML=`
+      <span class="slot-num">${idx+1}</span>
+      <span style="flex:1">${name}</span>
+      <button class="slot-remove" title="Remove" onclick="removeFromSlot(${idx})">×</button>`;
+    // Re-attach drag handlers on the now-filled slot (slot itself becomes draggable)
+    attachSlotDrop(el, idx);
+  } else {
+    el.className='slot';
+    el.draggable=false;
+    el.innerHTML=`<span class="slot-num">${idx+1}</span><span>${t('dropHere')}</span>`;
+    attachSlotDrop(el, idx);
+  }
+}
+
+/** Remove item from slot, returning it to the available pool visually.
+    The source list is never mutated — items are always available to drag
+    from the center column regardless of slot state. */
+function removeFromSlot(idx){
+  state.slotContents[idx] = undefined;
+  renderSlot(idx);
+  updatePlacedCount();
+  // Clear any lingering feedback so the user can try again cleanly
+  $('feedbackBanner').className='feedback-banner';
+}
+
+function updatePlacedCount(){
+  const filled = state.slotContents.filter(Boolean).length;
+  $('placedCount').textContent = `${t('placed')}: ${filled}/${L().slots}`;
+}
+
+/* ─── SLIDERS ─── */
 function resetSliders(){
-  document.getElementById('phSlider').value=state.ph;
-  document.getElementById('turbSlider').value=state.turb;
-  document.getElementById('tempSlider').value=state.temp;
-  document.getElementById('phVal').textContent=state.ph.toFixed(1);
-  document.getElementById('turbVal').textContent=state.turb;
-  document.getElementById('tempVal').textContent=state.temp;
+  $('phSlider').value=state.ph; $('turbSlider').value=state.turb; $('tempSlider').value=state.temp;
+  $('phVal').textContent=state.ph.toFixed(1);
+  $('turbVal').textContent=state.turb;
+  $('tempVal').textContent=state.temp;
 }
 function resetMetalSliders(){
-  document.getElementById('asSlider').value=state.as_;
-  document.getElementById('fSlider').value=state.f;
-  document.getElementById('pbSlider').value=state.pb;
-  document.getElementById('no3Slider').value=state.no3;
-  document.getElementById('asVal').textContent=state.as_;
-  document.getElementById('fVal').textContent=state.f.toFixed(1);
-  document.getElementById('pbVal').textContent=state.pb;
-  document.getElementById('no3Val').textContent=state.no3;
+  $('asSlider').value=state.as_; $('fSlider').value=state.f;
+  $('pbSlider').value=state.pb; $('no3Slider').value=state.no3;
+  $('asVal').textContent=state.as_; $('fVal').textContent=state.f.toFixed(1);
+  $('pbVal').textContent=state.pb; $('no3Val').textContent=state.no3;
 }
+$('phSlider').addEventListener('input',  e=>{state.ph  =parseFloat(e.target.value);$('phVal').textContent  =state.ph.toFixed(1);});
+$('turbSlider').addEventListener('input',e=>{state.turb=parseInt(e.target.value);  $('turbVal').textContent=state.turb;});
+$('tempSlider').addEventListener('input',e=>{state.temp=parseInt(e.target.value);  $('tempVal').textContent=state.temp;});
+$('asSlider').addEventListener('input',  e=>{state.as_ =parseInt(e.target.value);  $('asVal').textContent  =state.as_;});
+$('fSlider').addEventListener('input',   e=>{state.f   =parseFloat(e.target.value);$('fVal').textContent   =state.f.toFixed(1);});
+$('pbSlider').addEventListener('input',  e=>{state.pb  =parseInt(e.target.value);  $('pbVal').textContent  =state.pb;});
+$('no3Slider').addEventListener('input', e=>{state.no3 =parseInt(e.target.value);  $('no3Val').textContent =state.no3;});
 
-/* ─── DRAG DROP ─── */
-function handleDrop(i){
-  if(!state.draggedItem||state.stepsPlaced[i])return;
-  state.stepsPlaced[i]=state.draggedItem;
-  const el=document.getElementById('slotsContainer').children[i];
-  el.classList.add('filled');el.textContent=state.draggedItem;
-  updatePlacedCount();checkCompletion();
-}
-function updatePlacedCount(){
-  const l=L();
-  document.getElementById('placedCount').textContent=`${t('placed')}: ${state.stepsPlaced.filter(Boolean).length}/${l.slots}`;
-}
-
-/* ─── PARAMETER VALIDATION ─── */
+/* ─── PARAMETER VALIDATION (Level 3) ─── */
 function validateWaterParams(ph,turb,temp){
-  const lang=state.language;
-  const safe=t('safe'),unsafe=t('unsafe'),oor=t('outOfRange');
-  const phS=ph<0||ph>14?oor:(ph>=6.5&&ph<=8.5?safe:unsafe);
-  const turbS=turb<0?oor:(turb<5?safe:unsafe);
-  const tempS=temp<0||temp>50?oor:(temp>=10&&temp<=30?safe:unsafe);
-  return{ph:phS,turbidity:turbS,temperature:tempS,allSafe:phS===safe&&turbS===safe&&tempS===safe};
+  const safe=t('safe'), unsafe=t('unsafe'), oor=t('outOfRange');
+  const phS  = ph<0||ph>14  ? oor : (ph>=6.5&&ph<=8.5    ? safe:unsafe);
+  const turbS= turb<0       ? oor : (turb<5               ? safe:unsafe);
+  const tempS= temp<0||temp>50? oor:(temp>=10&&temp<=30   ? safe:unsafe);
+  return{ph:phS,turbidity:turbS,temperature:tempS,
+         allSafe:phS===safe&&turbS===safe&&tempS===safe};
 }
-
 function submitLevel3(){
   const v=validateWaterParams(state.ph,state.turb,state.temp);
-  const el=document.getElementById('l3Result');
+  const el=$('l3Result');
   el.classList.remove('hidden');
   el.className=`param-result ${v.allSafe?'safe':'unsafe'}`;
   el.innerHTML=`<strong>pH:</strong> ${v.ph} &nbsp; <strong>Turbidity:</strong> ${v.turbidity} &nbsp; <strong>Temp:</strong> ${v.temperature}`;
   state.controlsPassed=v.allSafe;
-  if(v.allSafe){completeLevelNoOrder();}
-  else{showFeedback(t('tryAgain'),false);}
+  if(v.allSafe) completeLevelNoOrder();
+  else showFeedback(t('tryAgain'),false);
 }
 
-/* ─── HEAVY METAL ASSESSMENT ─── */
-function validateMetal(val,limit){return val<=limit?t('safe'):t('unsafe');}
-function submitLevel4(){
-  const s=t('safe'),u=t('unsafe');
-  const asS=validateMetal(state.as_,10);
-  const fS=validateMetal(state.f,1.5);
-  const pbS=validateMetal(state.pb,10);
-  const no3S=validateMetal(state.no3,50);
-  const allSafe=[asS,fS,pbS,no3S].every(x=>x===s);
-  const el=document.getElementById('l4Result');
+/* ─── HEAVY METAL ASSESSMENT (Level 4) ─── */
+function validateMetal(val,limit){ return val<=limit?t('safe'):t('unsafe'); }
+
+/**
+ * FIX 2: Async submit with loading overlay → auto-redirect to leaderboard.
+ * Flow: show overlay → save to DB → hide overlay → show leaderboard
+ */
+async function submitLevel4(){
+  const safe=t('safe');
+  const asS  = validateMetal(state.as_, 10);
+  const fS   = validateMetal(state.f,   1.5);
+  const pbS  = validateMetal(state.pb,  10);
+  const no3S = validateMetal(state.no3, 50);
+  const allSafe = [asS,fS,pbS,no3S].every(x=>x===safe);
+
+  const el=$('l4Result');
   el.classList.remove('hidden');
   el.className=`param-result ${allSafe?'safe':'unsafe'}`;
   el.innerHTML=`<strong>As:</strong> ${asS} &nbsp; <strong>F⁻:</strong> ${fS} &nbsp; <strong>Pb:</strong> ${pbS} &nbsp; <strong>NO₃⁻:</strong> ${no3S}`;
+
   state.level4Passed=allSafe;
-  if(allSafe){completeLevelNoOrder();}
-  else{showFeedback(t('tryAgain'),false);}
+
+  if(allSafe){
+    // Unlock quiz first (coins awarded inside)
+    state.levelPassed=true;
+    state.completed.add(state.currentLevel);
+    updateCoins(20);
+    renderQuiz();
+    showFeedback(t('completed'),true);
+
+    // Disable button to prevent double-submit
+    const btn=$('submitL4Btn');
+    btn.disabled=true;
+    btn.innerHTML=`<span class="spinner"></span> Saving…`;
+
+    // Show saving overlay
+    $('saveTitle').textContent='Saving your score…';
+    $('saveMsg').textContent='Uploading to leaderboard';
+    $('saveOverlay').classList.add('show');
+
+    try {
+      await DB.upsertScore(state.userName, state.coins, state.completed.size);
+      $('saveTitle').textContent='Score saved! 🎉';
+      $('saveMsg').textContent='Redirecting to leaderboard…';
+      await sleep(1400);
+    } catch(e){
+      console.error('[Level4] DB save failed:', e);
+      $('saveTitle').textContent='Saved locally';
+      $('saveMsg').textContent='Could not reach server. Score saved offline.';
+      await sleep(1800);
+    } finally {
+      $('saveOverlay').classList.remove('show');
+      btn.disabled=false;
+      btn.innerHTML='Assess Contamination';
+    }
+
+    // Navigate to leaderboard
+    showScreen('leaderboardScreen');
+    loadAndRenderLeaderboard();
+  } else {
+    showFeedback(t('tryAgain'),false);
+  }
 }
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 /* ─── POLLUTANT TABLE ─── */
 function renderPollutantTable(){
-  document.getElementById('pollutantPanel').classList.remove('hidden');
-  const tbl=document.getElementById('pollutantTable');
-  const safe=t('safe'),unsafe=t('unsafe');
-  tbl.innerHTML=`<thead><tr><th>Pollutant</th><th>WHO/BIS</th><th>Punjab</th><th>HP</th><th>CG</th><th>Health Impact</th></tr></thead>
-  <tbody>${pollutantData.map(p=>{
-    const pjS=p.punjab.avg>p.who?'unsafe':'safe',hpS=p.hp.avg>p.who?'unsafe':'safe',cgS=p.cg.avg>p.who?'unsafe':'safe';
-    return`<tr>
-      <td><strong>${p.name}</strong></td>
-      <td>${p.who} ${p.unit}</td>
-      <td><span class="status-badge status-${pjS}">${p.punjab.range}</span></td>
-      <td><span class="status-badge status-${hpS}">${p.hp.range}</span></td>
-      <td><span class="status-badge status-${cgS}">${p.cg.range}</span></td>
-      <td style="font-size:11px;color:var(--muted)">${p.health}</td>
-    </tr>`;
-  }).join('')}</tbody>`;
+  $('pollutantPanel').classList.remove('hidden');
+  $('pollutantTable').innerHTML=`
+    <thead><tr><th>Pollutant</th><th>WHO/BIS</th><th>Punjab</th><th>HP</th><th>CG</th><th>Health</th></tr></thead>
+    <tbody>${pollutantData.map(p=>{
+      const pjS=p.punjab.avg>p.who?'unsafe':'safe';
+      const hpS=p.hp.avg>p.who?'unsafe':'safe';
+      const cgS=p.cg.avg>p.who?'unsafe':'safe';
+      return`<tr>
+        <td><strong>${p.name}</strong></td>
+        <td style="white-space:nowrap">${p.who} ${p.unit}</td>
+        <td><span class="status-badge status-${pjS}">${p.punjab.range}</span></td>
+        <td><span class="status-badge status-${hpS}">${p.hp.range}</span></td>
+        <td><span class="status-badge status-${cgS}">${p.cg.range}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${p.health}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
 }
 
-/* ─── COMPLETION ─── */
+/* ─── COMPLETION (drag levels 1 & 2) ─── */
 function checkCompletion(){
   const l=L();
-  const placed=state.stepsPlaced.filter(Boolean);
-  if(placed.length<l.slots)return;
-  const correct=l.correctOrder[state.language]||l.correctOrder.en;
-  const ok=JSON.stringify(placed)===JSON.stringify(correct);
-  if(ok){completeLevelNoOrder();}
-  else{showFeedback(t('tryAgain'),false);}
+  const placed=state.slotContents.filter(Boolean);
+  if(placed.length < l.slots) return;
+  const correct = l.correctOrder[state.language]||l.correctOrder.en;
+  const ok = JSON.stringify(placed)===JSON.stringify(correct);
+  if(ok){ completeLevelNoOrder(); }
+  else { showFeedback(t('tryAgain'),false); }
 }
 
 function completeLevelNoOrder(){
-  state.levelPassed=true;state.completed.add(state.currentLevel);
-  updateCoins(20);renderQuiz();updateLeaderboard();
+  if(state.levelPassed) return; // guard against double-fire
+  state.levelPassed=true; state.completed.add(state.currentLevel);
+  updateCoins(20); renderQuiz();
+  // Async DB save (non-blocking for non-final levels)
+  DB.upsertScore(state.userName, state.coins, state.completed.size)
+    .catch(e=>console.warn('[DB] Background save failed:', e));
   showFeedback(t('completed'),true);
+  renderHomeLevels(); // update stars
 }
 
 function showFeedback(msg,ok){
-  const el=document.getElementById('feedbackBanner');
-  el.textContent=msg;el.className=`feedback-banner show ${ok?'ok':'err'}`;
+  const el=$('feedbackBanner');
+  el.textContent=msg;
+  el.className=`feedback-banner show ${ok?'ok':'err'}`;
 }
 
 /* ─── QUIZ ─── */
@@ -844,13 +1081,13 @@ let currentQuestion=null;
 function renderQuiz(){
   const pool=questionBank[state.currentLevel]||[];
   const used=state.usedQuestions[state.currentLevel]||[];
-  const available=pool.filter((_,i)=>!used.includes(i));
+  const available=pool.map((_,i)=>i).filter(i=>!used.includes(i));
   let idx;
-  if(available.length===0){state.usedQuestions[state.currentLevel]=[];idx=Math.floor(Math.random()*pool.length);}
-  else{const pick=Math.floor(Math.random()*available.length);idx=pool.indexOf(available[pick]);}
-  (state.usedQuestions[state.currentLevel]=state.usedQuestions[state.currentLevel]||[]).push(idx);
+  if(available.length===0){ state.usedQuestions[state.currentLevel]=[]; idx=0; }
+  else { idx=available[Math.floor(Math.random()*available.length)]; }
+  state.usedQuestions[state.currentLevel].push(idx);
   currentQuestion=pool[idx];
-  const qa=document.getElementById('quizArea');
+  const qa=$('quizArea');
   qa.classList.remove('hidden');
   qa.innerHTML=`<div class="quiz-box">
     <p>${currentQuestion.q}</p>
@@ -862,77 +1099,92 @@ function renderQuiz(){
   </div>`;
 }
 function answerQuiz(choice){
-  if(!state.levelPassed)return;
-  const el=document.getElementById('quizResult');
+  if(!state.levelPassed) return;
+  const el=$('quizResult');
   if(choice===currentQuestion.a){
-    el.className='quiz-result correct';el.textContent=currentQuestion.s;
-    if(!state.quizDone){updateCoins(10);state.quizDone=true;updateLeaderboard();}
-  }else{el.className='quiz-result wrong';el.textContent=t('tryAgainQuiz');}
+    el.className='quiz-result correct'; el.textContent=currentQuestion.s;
+    if(!state.quizDone){
+      updateCoins(10); state.quizDone=true;
+      DB.upsertScore(state.userName, state.coins, state.completed.size).catch(()=>{});
+    }
+  } else { el.className='quiz-result wrong'; el.textContent=t('tryAgainQuiz'); }
 }
 
-/* ─── COINS & LEADERBOARD ─── */
-function updateCoins(d){state.coins=Math.max(0,state.coins+d);document.getElementById('coinVal').textContent=state.coins;}
-function updateLeaderboard(){
-  if(!state.userName)return;
-  const key='hydro_leaderboard';
-  const data=JSON.parse(localStorage.getItem(key)||'[]');
-  const ex=data.find(x=>x.name===state.userName);
-  if(ex){ex.score=Math.max(ex.score,state.coins);ex.tasks=Math.max(ex.tasks,state.completed.size);}
-  else data.push({name:state.userName,score:state.coins,tasks:state.completed.size});
-  data.sort((a,b)=>b.score-a.score);
-  localStorage.setItem(key,JSON.stringify(data));
+/* ─── COINS ─── */
+function updateCoins(d){ state.coins=Math.max(0,state.coins+d); $('coinVal').textContent=state.coins; }
+
+/* ─── LEADERBOARD ─── */
+
+/** Load from DB and render. Attaches a real-time listener if Firestore is available. */
+function loadAndRenderLeaderboard(){
+  $('lbBody').innerHTML='<tr><td colspan="4" class="lb-loading">Loading…</td></tr>';
+  // Clean up any previous listener
+  if(lbUnsubscribe){ lbUnsubscribe(); lbUnsubscribe=null; }
+  lbUnsubscribe = DB.subscribeLeaderboard(renderLeaderboardRows);
 }
-function renderLeaderboard(){
-  const rows=JSON.parse(localStorage.getItem('hydro_leaderboard')||'[]');
+
+function renderLeaderboardRows(rows){
   const rankClass={0:'gold',1:'silver',2:'bronze'};
-  document.getElementById('lbBody').innerHTML=rows.map((r,i)=>`<tr class="${r.name===state.userName?'lb-you':''}">
-    <td class="lb-rank ${rankClass[i]||''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-    <td class="lb-name">${r.name}</td>
-    <td class="lb-score">🪙 ${r.score}</td>
-    <td>${r.tasks}</td>
-  </tr>`).join('');
+  if(!rows.length){
+    $('lbBody').innerHTML='<tr><td colspan="4" class="lb-loading">No scores yet. Be the first!</td></tr>';
+    return;
+  }
+  $('lbBody').innerHTML=rows.map((r,i)=>`
+    <tr class="${r.name===state.userName?'lb-you':''}">
+      <td class="lb-rank ${rankClass[i]||''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+      <td class="lb-name">${escHtml(r.name)}</td>
+      <td class="lb-score">🪙 ${r.score}</td>
+      <td>${r.tasks}</td>
+    </tr>`).join('');
 }
+
+function escHtml(str){ return String(str).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 /* ─── HINT ─── */
 function showHint(){
-  document.getElementById('hintText').textContent=L().hints[state.language]||L().hints.en;
-  document.getElementById('hintToast').classList.add('show');
-  setTimeout(()=>document.getElementById('hintToast').classList.remove('show'),5000);
+  $('hintText').textContent = L().hints[state.language]||L().hints.en;
+  $('hintToast').classList.add('show');
+  setTimeout(()=>$('hintToast').classList.remove('show'), 5000);
 }
 
 /* ─── LANDING ─── */
 function renderSavedNames(){
-  const sel=document.getElementById('savedNames');
-  sel.innerHTML=`<option value="">${t('selectSaved')}</option>`+state.savedUsers.map(n=>`<option value="${n}">${n}</option>`).join('');
+  $('savedNames').innerHTML = `<option value="">${t('selectSaved')}</option>`
+    +state.savedUsers.map(n=>`<option value="${n}">${escHtml(n)}</option>`).join('');
 }
 
-document.getElementById('enterBtn').addEventListener('click',()=>{
-  const n=(document.getElementById('nameInput').value.trim()||document.getElementById('savedNames').value).trim();
-  if(!n){document.getElementById('nameErr').textContent=t('nameRequired');return;}
+$('enterBtn').addEventListener('click', ()=>{
+  const n = ($('nameInput').value.trim() || $('savedNames').value).trim();
+  if(!n){ $('nameErr').textContent=t('nameRequired'); return; }
   state.userName=n;
-  if(!state.savedUsers.includes(n)){state.savedUsers.push(n);localStorage.setItem('hydro_users',JSON.stringify(state.savedUsers));}
+  if(!state.savedUsers.includes(n)){
+    state.savedUsers.push(n);
+    localStorage.setItem('hydro_users',JSON.stringify(state.savedUsers));
+  }
   localStorage.setItem('hydro_user',n);
-  document.getElementById('nameErr').textContent='';
-  document.getElementById('playerName').textContent=n;
-  document.getElementById('playerChip').classList.remove('hidden');
-  showScreen('homeScreen');updateLeaderboard();renderSavedNames();renderHomeLevels();
+  $('nameErr').textContent='';
+  $('playerName').textContent=n;
+  $('playerChip').classList.remove('hidden');
+  showScreen('homeScreen');
+  renderSavedNames(); renderHomeLevels();
 });
-document.getElementById('savedNames').addEventListener('change',e=>{if(e.target.value)document.getElementById('nameInput').value=e.target.value;});
-document.getElementById('langSelect').addEventListener('change',e=>{state.language=e.target.value;applyI18n();});
 
-/* ─── SLIDER EVENTS ─── */
-document.getElementById('phSlider').addEventListener('input',e=>{state.ph=parseFloat(e.target.value);document.getElementById('phVal').textContent=state.ph.toFixed(1);});
-document.getElementById('turbSlider').addEventListener('input',e=>{state.turb=parseInt(e.target.value);document.getElementById('turbVal').textContent=state.turb;});
-document.getElementById('tempSlider').addEventListener('input',e=>{state.temp=parseInt(e.target.value);document.getElementById('tempVal').textContent=state.temp;});
-document.getElementById('asSlider').addEventListener('input',e=>{state.as_=parseInt(e.target.value);document.getElementById('asVal').textContent=state.as_;});
-document.getElementById('fSlider').addEventListener('input',e=>{state.f=parseFloat(e.target.value);document.getElementById('fVal').textContent=state.f.toFixed(1);});
-document.getElementById('pbSlider').addEventListener('input',e=>{state.pb=parseInt(e.target.value);document.getElementById('pbVal').textContent=state.pb;});
-document.getElementById('no3Slider').addEventListener('input',e=>{state.no3=parseInt(e.target.value);document.getElementById('no3Val').textContent=state.no3;});
+$('savedNames').addEventListener('change', e=>{ if(e.target.value) $('nameInput').value=e.target.value; });
+$('langSelect').addEventListener('change', e=>{ state.language=e.target.value; applyI18n(); });
 
 /* ─── INIT ─── */
-const savedUser=localStorage.getItem('hydro_user');
-if(savedUser){state.userName=savedUser;document.getElementById('nameInput').value=savedUser;document.getElementById('playerName').textContent=savedUser;document.getElementById('playerChip').classList.remove('hidden');}
-applyI18n();renderSavedNames();renderHomeLevels();renderLeaderboard();
+const savedUser = localStorage.getItem('hydro_user');
+if(savedUser){
+  state.userName=savedUser;
+  $('nameInput').value=savedUser;
+  $('playerName').textContent=savedUser;
+  $('playerChip').classList.remove('hidden');
+}
+applyI18n(); renderSavedNames(); renderHomeLevels();
+// Pre-load leaderboard into memory (non-blocking)
+DB.fetchLeaderboard().then(rows=>{
+  renderLeaderboardRows(rows);
+}).catch(()=>{});
 </script>
 </body>
 </html>
