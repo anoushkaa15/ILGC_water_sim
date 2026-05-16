@@ -1008,7 +1008,7 @@ async function submitLevel4(){
     try {
       await DB.upsertScore(state.userName, state.coins, state.completed.size);
       $('saveTitle').textContent='Score saved! 🎉';
-      $('saveMsg').textContent='Redirecting to leaderboard…';
+      $('saveMsg').textContent='All done!';
       await sleep(1400);
     } catch(e){
       console.error('[Level4] DB save failed:', e);
@@ -1017,16 +1017,23 @@ async function submitLevel4(){
       await sleep(1800);
     } finally {
       $('saveOverlay').classList.remove('show');
-      btn.disabled=false;
-      btn.innerHTML='Assess Contamination';
+      btn.disabled=true;
+      btn.innerHTML='Assessment Submitted';
     }
 
     // Navigate to leaderboard
-    showScreen('leaderboardScreen');
-    loadAndRenderLeaderboard();
+    const nextBtn = $('nextBtn');
+    if (nextBtn) {
+      nextBtn.classList.remove('hidden'); 
+      nextBtn.textContent = "View Leaderboard 🏆";
+      nextBtn.onclick = () => {
+        showScreen('leaderboardScreen');
+        loadAndRenderLeaderboard();
+      };
+    }
   } else {
     showFeedback(t('tryAgain'),false);
-  }
+  }  
 }
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
